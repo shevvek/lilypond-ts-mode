@@ -1,38 +1,38 @@
 (require 'treesit)
 
 (defvar lilypond-ts-font-lock-rules
-  '(;; tree-sitter-lilypond/queries/highlights.scm
+  `(;; tree-sitter-lilypond/queries/highlights.scm
     :language lilypond
     :feature comments
-                                        ; :override t
+    :override t
     ((comment) @font-lock-comment-face)
 
     :language lilypond
     :feature punctuation
-                                        ; :override t
+    :override nil
     ((punctuation) @font-lock-punctuation-face)
 
     :language lilypond
     :feature operators
-                                        ;  :override t
+    :override t
     ((
       (assignment_lhs)
       :anchor
       (
        (punctuation) @font-lock-operator-face
-       (:match "^=$" @font-lock-operator-face)
+       (:match "\\`=\\'" @font-lock-operator-face)
        )
       ))
 
     :language lilypond
     :feature operators
-                                        ;  :override t
+    :override t
     ((named_context
       (symbol)
       :anchor
       (
        (punctuation) @font-lock-operator-face
-       (:match "^=$" @font-lock-operator-face )
+       (:match "\\`=\\'" @font-lock-operator-face )
        )
       :anchor
       [(symbol) (string)]
@@ -40,7 +40,7 @@
 
     :language lilypond
     :feature grouping
-                                        ;  :override t
+    :override t
     ((chord
       :anchor
       "<" @font-lock-bracket-face
@@ -50,7 +50,7 @@
 
     :language lilypond
     :feature variables
-                                        ; :override t
+    :override nil
     ((
       (escaped_word) @font-lock-variable-use-face
                                         ;(#not-match? @font-lock-variable-use-face \"^\\\\(?:include|maininput|version)$\") ; This is needed for Panic Nova
@@ -60,25 +60,28 @@
     :feature lexer
     :override t
     ((
-      (escaped_word) @font-lock-preprocessor-face
-      (:match "^\\\\(?:include|maininput|version)$" @font-lock-preprocessor-face) ; These are handled directly by LilyPond’s lexer.
+      (escaped_word) @font-lock-type-face
+      (:match ,(rx (seq bol "\\" (or "include" "maininput" "version") eol))
+              @font-lock-type-face) ; These are handled directly by LilyPond’s lexer.
       ))
 
     :language lilypond
     :feature numbers
     :override t
     ((
-      (escaped_word) @font-lock-number-face
-      (:match "^\\\\(?:breve|longa|maxima)$" @font-lock-number-face)
+      (escaped_word) @font-lock-keyword-face
+      (:match ,(rx (seq bol "\\" (or "breve" "longa" "maxima") eol))
+              @font-lock-keyword-face)
       ))
 
-    :language lilypond
-    :feature functions
-                                        ;   :override t
-    ((
-      (escaped_word) @font-lock-function-call-face
-      (:match "^\\\\\\^$" @font-lock-function-call-face)
-      ))
+    ;; String bend rule
+    ;; :language lilypond
+    ;; :feature functions
+    ;;                                     ;   :override t
+    ;; ((
+    ;;   (escaped_word) @font-lock-function-call-face
+    ;;   (:match "^\\\\\\^$" @font-lock-function-call-face)
+    ;;   ))
 
     ;; (quoted_identifier
     ;;  "\"" @bracket
@@ -96,11 +99,11 @@
       (fraction)
       (decimal_number)
       (unsigned_integer)
-      ] @font-lock-number-face)
+      ] @font-lock-keyword-face)
 
     :language lilypond
     :feature dynamics
-                                        ;  :override t
+    :override t
     ((dynamic) @font-lock-constant-face)
 
     ;; (instrument_string_number) @identifier.core.function
@@ -140,8 +143,10 @@
     (setq-local treesit-font-lock-feature-list
                 '((comments punctuation)
                   (functions variables)
+                  (dynamics)
                   (lexer numbers)
                   (operators grouping)))
+    (setq-local treesit-font-lock-level 5)
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules lilypond-ts-font-lock-rules))
     (treesit-parser-create 'lilypond)

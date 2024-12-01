@@ -108,16 +108,19 @@
 
     ;; (instrument_string_number) @identifier.core.function
 
-    ;; (
-    ;;  (string
-    ;;   "\"" @string.delimiter.left
-    ;;   [
-    ;;    (string_fragment)?
-    ;;    (escape_sequence)? @string.escape
-    ;;    ]
-    ;;   "\"" @string.delimiter.right
-    ;;   )
-    ;;  ) @string
+    :language lilypond
+    :feature strings
+    ;; :override t
+    ((
+      (string
+       "\"" ;;@string.delimiter.left
+       [
+        (string_fragment)?
+        (escape_sequence)? @font-lock-escape-face
+        ]
+       "\"" ;;@string.delimiter.right
+       )
+      ) @font-lock-string-face)
 
     :language lilypond
     :feature grouping
@@ -141,7 +144,7 @@
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-font-lock-feature-list
-                '((comments punctuation)
+                '((comments strings punctuation)
                   (functions variables)
                   (dynamics)
                   (lexer numbers)

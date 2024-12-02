@@ -14,12 +14,14 @@
     (apply #'insert query-specs)))
 
 (defun format-qualifier ()
-  (let ((this-sym (symbol-name (symbol-at-point))))
+  (let ((this-char (thing-at-point 'char)))
     (cond
-     ((equal "." this-sym)
+     ((equal "." this-char)
       (delete-char 1)
       (insert ":anchor"))
-     ((string-match-p (rx bol (or "?" "*" "+") eol) this-sym)
+     ((or (equal "?" this-char)
+          (equal "*" this-char)
+          (equal "+" this-char))
       (insert ":"))
      )))
 
@@ -39,12 +41,8 @@
   ;; The region should now be exactly the regex string
   (replace-region-contents (point) (mark)
                            (lambda ()
-                             (concat
-                              ",(rx "
-                              (prin1-to-string
-                               (rxt-pcre-to-rx
-                                (sexp-at-point)))
-                              ")"))))
+                             (prin1-to-string
+                              (rxt-pcre-to-elisp (sexp-at-point))))))
 
 (defun handle-query-predicate ()
   (let ((pred (thing-at-point 'word)))
@@ -74,21 +72,28 @@
         (insert ")")
         (insert-query-specs)))
     (insert "))\n\n(provide '" out-name ")")
-    (while (not (bobp))
-      (format-qualifier)
-      (forward-symbol -1))
-    (insert "(defvar " out-name " `(\n")
+    (while (re-search-backward (rx (or "." "*" "?" "+")) nil t)
+      (unless (or (syntax-ppss-context (syntax-ppss))
+                  (> (length (thing-at-point 'sexp)) 1))
+        (format-qualifier)))
+    (goto-char (point-min))
+    (insert "(defvar " out-name "\n'(\n")
     (while (search-forward "(#" nil t)
       (handle-query-predicate))
+    (emacs-lisp-mode)
+    (indent-region (point-min) (point-max))
     (write-file (concat out-name ".el"))))
 
 (defvar query-files nil)
 (setq query-files
       '(("queries/highlights.scm" . "highlights")
         ("queries/highlights-builtins.scm" . "highlights-builtins")
-        ("tree-sitter-lilypond-scheme/queries/highlights.scm" . "scheme-highlights")
-        ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm" . "scheme-highlights-builtins")
-        ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm" . "scheme-highlights-lilypond-builtins")))
+        ("tree-sitter-lilypond-scheme/queries/highlights.scm"
+         . "scheme-highlights")
+        ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm"
+         . "scheme-highlights-builtins")
+        ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm"
+         . "scheme-highlights-lilypond-builtins")))
 
 (defun translate-ly-queries (ts-ly-loc)
   (mapc (lambda (qfile)

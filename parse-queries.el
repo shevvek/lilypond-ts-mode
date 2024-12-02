@@ -13,12 +13,22 @@
     (backward-sexp)
     (apply #'insert query-specs)))
 
-(defun format-pred ()
-  ;; Assume point is just after #
-  (delete-char -1)
-  (insert ":")
-  (forward-sexp)
-  (delete-char -1))
+(defun format-qualifier ()
+  (let ((this-sym (symbol-name (symbol-at-point))))
+    (cond
+     ((equal "." this-sym)
+      (delete-char 1)
+      (insert ":anchor"))
+     ((string-match-p (rx bol (or "?" "*" "+") eol) this-sym)
+      (insert ":"))
+     )))
+
+  (defun format-pred ()
+    ;; Assume point is just after #
+    (delete-char -1)
+    (insert ":")
+    (forward-sexp)
+    (delete-char -1))
 
 (defun translate-match-query ()
   ;; Assume the point is just after :match
@@ -63,11 +73,9 @@
       (when (eolp)
         (insert ")")
         (insert-query-specs)))
-    (goto-char (point-max))
-    (while (re-search-backward (rx (seq (group space) "." (group space)))
-                               nil t)
-      (replace-match (rx (seq (backref 1) ":anchor" (backref 2)))))
-    (goto-char (point-min))
+    (while (not (bobp))
+      (format-qualifier)
+      (forward-symbol -1))
     (while (search-forward "(#" nil t)
       (handle-query-predicate))
     (write-file out-file)))

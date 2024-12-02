@@ -1,4 +1,5 @@
 ;; -*- lexical-binding: t -*-
+(use-package pcre2el :ensure t)
 
 (defvar query-specs
   '(":language lilypond\n"
@@ -17,7 +18,7 @@
   (delete-char -1)
   (insert ":")
   (forward-sexp)
-  (delete-char 1))
+  (delete-char -1))
 
 (defun translate-match-query ()
   ;; Assume the point is just after :match
@@ -28,9 +29,12 @@
   ;; The region should now be exactly the regex string
   (replace-region-contents (point) (mark)
                            (lambda ()
-                             (prin1-to-string
-                              (rxt-pcre-to-rx
-                               (buffer-substring (point) (mark)))))))
+                             (concat
+                              ",(rx "
+                              (prin1-to-string
+                               (rxt-pcre-to-rx
+                                (sexp-at-point)))
+                              ")"))))
 
 (defun handle-query-predicate ()
   (let ((pred (thing-at-point 'word)))
@@ -51,6 +55,7 @@
 (defun translate-ts-query-file (scm-file out-file)
   (with-temp-buffer
     (insert-file-contents scm-file)
+    (scheme-mode)
     (goto-char (point-min))
     (insert-query-specs)
     (while (not (eobp))
@@ -68,5 +73,5 @@
     (write-file out-file)))
 
 (translate-ts-query-file
- "~/Documents/tree-sitter-lilypond/queries/highlights.scm"
- "~/.emacs.d/lilypond-ts/auto-ly-highlights.el")
+ "D:/tree-sitter-lilypond/queries/highlights.scm"
+ "~/.emacs.d/lilypond-ts-mode/auto-ly-highlights.el")

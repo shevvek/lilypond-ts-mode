@@ -62,7 +62,7 @@
       (backward-up-list)
       (kill-sexp)))))
 
-(defun translate-ts-query-file (scm-file out-file)
+(defun translate-ts-query-file (scm-file out-name)
   (with-temp-buffer
     (insert-file-contents scm-file)
     (scheme-mode)
@@ -73,13 +73,27 @@
       (when (eolp)
         (insert ")")
         (insert-query-specs)))
+    (insert "))\n\n(provide '" out-name ")")
     (while (not (bobp))
       (format-qualifier)
       (forward-symbol -1))
+    (insert "(defvar " out-name " `(\n")
     (while (search-forward "(#" nil t)
       (handle-query-predicate))
-    (write-file out-file)))
+    (write-file (concat out-name ".el"))))
 
-(translate-ts-query-file
- "D:/tree-sitter-lilypond/queries/highlights.scm"
- "~/.emacs.d/lilypond-ts-mode/auto-ly-highlights.el")
+(defvar query-files nil)
+(setq query-files
+      '(("queries/highlights.scm" . "highlights")
+        ("queries/highlights-builtins.scm" . "highlights-builtins")
+        ("tree-sitter-lilypond-scheme/queries/highlights.scm" . "scheme-highlights")
+        ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm" . "scheme-highlights-builtins")
+        ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm" . "scheme-highlights-lilypond-builtins")))
+
+(defun translate-ly-queries (ts-ly-loc)
+  (mapc (lambda (qfile)
+          (translate-ts-query-file (concat ts-ly-loc (car qfile))
+                                   (cdr qfile)))
+        query-files))
+
+(translate-ly-queries "D:/tree-sitter-lilypond/")

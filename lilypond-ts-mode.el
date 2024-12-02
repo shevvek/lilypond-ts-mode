@@ -115,8 +115,8 @@
       (string
        "\"" ;;@string.delimiter.left
        [
-        (string_fragment)?
-        (escape_sequence)? @font-lock-escape-face
+        (string_fragment):?
+        (escape_sequence):? @font-lock-escape-face
         ]
        "\"" ;;@string.delimiter.right
        )

@@ -4,6 +4,21 @@
 (defvar ts-auto-query-files nil)
 (defvar ts-auto-query-lang nil)
 (defvar ts-auto-query-dir "auto-queries/")
+(defvar ts-auto-query-font-face-alist
+  '(("invalid" . "font-lock-warning-face")
+    ("function" . "font-lock-function-name-face")
+    ("variable" . "font-lock-variable-name-face")
+    ("keyword" . "font-lock-keyword-face")
+    ("type" . "font-lock-type-face")
+    ("comment" . "font-lock-comment-face")
+    ("string" . "font-lock-string-face")
+    ("constant" . "font-lock-constant-face")
+    ("value" . "font-lock-constant-face")
+    ("process" . "font-lock-preprocessor-face")
+    ("identifier" . "font-lock-builtin-face")
+    ("punctuation" . "font-lock-punctuation-face")
+    ("operator" . "font-lock-punctuation-face")
+    ("bracket" . "font-lock-punctuation-face")))
 
 (defun insert-query-specs (feature)
   ;; Move from end of last sexp to beginning of next sexp
@@ -92,6 +107,11 @@
         (push (thing-at-point 'sexp) selector-list))
       selector-list)))
 
+(defun map-selector-to-font-face (selector)
+  (alist-get selector ts-auto-query-font-face-alist
+             "default" nil
+             (lambda (elcar key) (string-match-p elcar key))))
+
 (defun ts-auto-parse-queries (ts-ly-loc)
   (let ((out-names (mapcar #'cdr ts-auto-query-files))
         (selectors (mapcan (lambda (qfile)
@@ -112,7 +132,9 @@
       (mapc (lambda (selector)
               (insert "\n(defface "
                       selector
-                      " '((t :inherit default))\n"
+                      " '((t :inherit "
+                      (map-selector-to-font-face selector)
+                      "))\n"
                       "\"Auto-generated face for treesit selector: "
                       selector
                       "\")"))

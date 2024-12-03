@@ -1,17 +1,20 @@
 ;; -*- lexical-binding: t -*-
 (use-package pcre2el :ensure t)
 
-(defvar query-specs
-  '(":language lilypond\n"
-    ":feature auto\n"
-    "("))
+(defvar ts-auto-query-files nil)
+(defvar ts-auto-query-lang nil)
+(defvar ts-auto-query-dir "auto-queries/")
 
-(defun insert-query-specs ()
+(defun insert-query-specs (feature)
   ;; Move from end of last sexp to beginning of next sexp
   (forward-sexp)
   (when (thing-at-point 'sexp)
     (backward-sexp)
-    (apply #'insert query-specs)))
+    (apply #'insert `(":language "
+                      ,ts-auto-query-lang
+                      "\n:feature "
+                      ,feature
+                      "\n("))))
 
 (defun format-qualifier ()
   (let ((this-char (thing-at-point 'char)))
@@ -65,12 +68,12 @@
     (insert-file-contents scm-file)
     (scheme-mode)
     (goto-char (point-min))
-    (insert-query-specs)
+    (insert-query-specs out-name)
     (while (not (eobp))
       (forward-sexp)
       (when (eolp)
         (insert ")")
-        (insert-query-specs)))
+        (insert-query-specs out-name)))
     (insert "))\n\n(provide '" out-name ")")
     (while (re-search-backward (rx (or "." "*" "?" "+")) nil t)
       (unless (or (syntax-ppss-context (syntax-ppss))
@@ -82,23 +85,40 @@
       (handle-query-predicate))
     (emacs-lisp-mode)
     (indent-region (point-min) (point-max))
-    (write-file (concat out-name ".el"))))
+    (write-file (concat ts-auto-query-dir out-name ".el"))
+    (let (selector-list)
+      (goto-char (point-max))
+      (while (re-search-backward (rx "@" (1+ word) (0+ "." (1+ word))) nil t)
+        (push (thing-at-point 'sexp) selector-list))
+      selector-list)))
 
-(defvar query-files nil)
-(setq query-files
-      '(("queries/highlights.scm" . "highlights")
-        ("queries/highlights-builtins.scm" . "highlights-builtins")
-        ("tree-sitter-lilypond-scheme/queries/highlights.scm"
-         . "scheme-highlights")
-        ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm"
-         . "scheme-highlights-builtins")
-        ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm"
-         . "scheme-highlights-lilypond-builtins")))
+(defun ts-auto-parse-queries (ts-ly-loc)
+  (let ((out-names (mapcar #'cdr ts-auto-query-files))
+        (selectors (mapcan (lambda (qfile)
+                             (translate-ts-query-file (concat ts-ly-loc (car qfile))
+                                                      (cdr qfile)))
+                           ts-auto-query-files)))
+    (with-temp-buffer
+      (emacs-lisp-mode)
+      (mapc (lambda (oname)
+              (insert "(require '"
+                      oname
+                      ")\n"))
+            out-names)
+      (insert "\n(defvar auto-ly-font-lock-rules\n"
+              "(nconc "
+              (string-join out-names "\n")
+              "))\n")
+      (mapc (lambda (selector)
+              (insert "\n(defface "
+                      selector
+                      " '((t :inherit default))\n"
+                      "\"Auto-generated face for treesit selector: "
+                      selector
+                      "\")"))
+            (sort (seq-uniq selectors) #'string< ))
+      (insert "\n\n(provide 'auto-ly-font-lock-rules)")
+      (indent-region (point-min) (point-max))
+      (write-file (concat ts-auto-query-dir "auto-ly-font-lock-rules.el")))))
 
-(defun translate-ly-queries (ts-ly-loc)
-  (mapc (lambda (qfile)
-          (translate-ts-query-file (concat ts-ly-loc (car qfile))
-                                   (cdr qfile)))
-        query-files))
-
-(translate-ly-queries "D:/tree-sitter-lilypond/")
+(provide 'ts-auto-parse-queries)

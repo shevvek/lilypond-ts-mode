@@ -141,6 +141,26 @@
     ((embedded_scheme_prefix) @font-lock-preprocessor-face)
     ))
 
+(require 'ts-auto-parse-queries)
+
+(defun install-ly-ts-auto-queries (ts-ly-dir)
+  (interactive "sLocal location of tree-sitter-lilypond repo: ")
+  (let ((default-directory (file-name-directory (or load-file-name
+                                                    buffer-file-name))))
+    (unless ts-auto-query-lang
+      (setq ts-auto-query-lang "lilypond"))
+    (unless ts-auto-query-files
+      (setq ts-auto-query-files
+            '(("queries/highlights.scm" . "highlights")
+              ("queries/highlights-builtins.scm" . "highlights-builtins")
+              ("tree-sitter-lilypond-scheme/queries/highlights.scm"
+               . "scheme-highlights")
+              ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm"
+               . "scheme-highlights-builtins")
+              ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm"
+               . "scheme-highlights-lilypond-builtins")))
+      (ts-auto-parse-queries ts-ly-dir))))
+
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-font-lock-feature-list

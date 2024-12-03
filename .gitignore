@@ -1,4 +1,4 @@
 *
 !.gitignore
 !lilypond-ts-mode.el
-!parse-queries.el
+!ts-auto-parse-queries.el

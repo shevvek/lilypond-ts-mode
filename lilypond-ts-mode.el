@@ -1,10 +1,15 @@
 (require 'treesit)
 (require 'ts-auto-parse-queries)
 
+(defvar lilypond-ts-grammar-url
+  "https://github.com/nwhetsell/tree-sitter-lilypond/")
+
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
 
-(defun install-ly-ts-auto-queries (&optional ts-ly-dir)
+(defvar lilypond-ts-use-auto-queries t)
+
+(defun lilypond-ts-install-auto-queries (&optional ts-ly-dir)
   (interactive)
   (unless ts-ly-dir
     (setq-local ts-ly-dir (read-directory-name
@@ -24,15 +29,35 @@
                . "scheme-highlights-lilypond-builtins"))))
     (ts-auto-parse-queries ts-ly-dir)))
 
-(let ((auto-query-loc (file-name-concat lilypond-ts-location
-                                        ts-auto-query-dir)))
-  (unless (file-directory-p auto-query-loc)
-    (install-ly-ts-auto-queries))
-  (add-to-list 'load-path
-               (file-name-concat lilypond-ts-location ts-auto-query-dir))
-  (require 'auto-ly-font-lock-rules))
+(defun lilypond-ts--legacy-install ()
+  (add-to-list 'treesit-language-source-alist
+               `(lilypond . (,lilypond-ts-grammar-url)))
+  (treesit-install-language-grammar 'lilypond))
 
-(defvar lilypond-ts-use-auto-queries t)
+(defun lilypond-ts--future-install ()
+  (let ((src-dir (file-name-concat lilypond-ts-location "grammar-src")))
+    ;; As of 30.0.92, treesit--git-clone-repo does not handle git submodules
+    (treesit--git-clone-repo lilypond-ts-grammar-url
+                             nil src-dir)
+    (treesit--install-language-grammar-1 nil 'lilypond src-dir)
+    (lilypond-ts-install-auto-queries (expand-file-name src-dir))))
+
+(defun lilypond-ts-install ()
+  (if (fboundp 'treesit--git-clone-repo)
+      (lilypond-ts--future-install)
+    (lilypond-ts--legacy-install)))
+
+(unless (treesit-language-available-p 'lilypond)
+  (lilypond-ts--legacy-install))
+
+(when lilypond-ts-use-auto-queries
+  (let ((auto-query-loc (file-name-concat lilypond-ts-location
+                                          ts-auto-query-dir)))
+    (unless (file-directory-p auto-query-loc)
+      (lilypond-ts-install-auto-queries))
+    (add-to-list 'load-path
+                 (file-name-concat lilypond-ts-location ts-auto-query-dir))
+    (require 'auto-ly-font-lock-rules)))
 
 (defvar lilypond-ts-font-lock-rules
   `(;; tree-sitter-lilypond/queries/highlights.scm

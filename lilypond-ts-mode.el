@@ -4,6 +4,10 @@
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
 
+(add-to-list 'load-path
+             (file-name-concat lilypond-ts-location ts-auto-query-dir))
+(require 'auto-ly-font-lock-rules)
+
 (defvar lilypond-ts-font-lock-rules
   `(;; tree-sitter-lilypond/queries/highlights.scm
     :language lilypond
@@ -159,20 +163,21 @@
               ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm"
                . "scheme-highlights-builtins")
               ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm"
-               . "scheme-highlights-lilypond-builtins")))
-      (ts-auto-parse-queries ts-ly-dir))))
+               . "scheme-highlights-lilypond-builtins"))))
+    (ts-auto-parse-queries ts-ly-dir)))
 
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
-    (setq-local treesit-font-lock-feature-list
-                '((comments strings punctuation)
-                  (functions variables)
-                  (dynamics)
-                  (lexer numbers)
-                  (operators grouping)))
-    (setq-local treesit-font-lock-level 5)
+    ;; (setq-local treesit-font-lock-feature-list
+    ;;             '((comments strings punctuation)
+    ;;               (functions variables)
+    ;;               (dynamics)
+    ;;               (lexer numbers)
+    ;;               (operators grouping)))
+    (setq-local treesit-font-lock-feature-list auto-ly-font-lock-features)
+    (setq-local treesit-font-lock-level 1)
     (setq-local treesit-font-lock-settings
-                (apply #'treesit-font-lock-rules lilypond-ts-font-lock-rules))
+                (apply #'treesit-font-lock-rules auto-ly-font-lock-rules))
     (treesit-parser-create 'lilypond)
     (treesit-major-mode-setup)))
 

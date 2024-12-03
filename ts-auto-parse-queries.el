@@ -115,7 +115,8 @@
 (defun ts-auto-parse-queries (ts-ly-loc)
   (let ((out-names (mapcar #'cdr ts-auto-query-files))
         (selectors (mapcan (lambda (qfile)
-                             (translate-ts-query-file (concat ts-ly-loc (car qfile))
+                             (translate-ts-query-file (file-name-concat ts-ly-loc
+                                                                        (car qfile))
                                                       (cdr qfile)))
                            ts-auto-query-files)))
     (with-temp-buffer
@@ -131,7 +132,7 @@
               "))\n")
       (mapc (lambda (selector)
               (insert "\n(defface "
-                      selector
+                      (seq-drop selector 1)
                       " '((t :inherit "
                       (map-selector-to-font-face selector)
                       "))\n"
@@ -139,8 +140,13 @@
                       selector
                       "\")"))
             (sort (seq-uniq selectors) #'string< ))
-      (insert "\n\n(provide 'auto-ly-font-lock-rules)")
+      (insert "\n\n(defvar auto-ly-font-lock-features\n"
+              "'(("
+              (string-join out-names "\n")
+              ")))"
+              "\n\n(provide 'auto-ly-font-lock-rules)")
       (indent-region (point-min) (point-max))
-      (write-file (concat ts-auto-query-dir "auto-ly-font-lock-rules.el")))))
+      (write-file (file-name-concat ts-auto-query-dir
+                                    "auto-ly-font-lock-rules.el")))))
 
 (provide 'ts-auto-parse-queries)

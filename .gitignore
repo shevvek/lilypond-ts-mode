@@ -2,3 +2,5 @@
 !.gitignore
 !lilypond-ts-mode.el
 !ts-auto-parse-queries.el
+!LICENSE
+!README.md

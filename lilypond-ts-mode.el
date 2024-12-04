@@ -59,6 +59,21 @@
                  (file-name-concat lilypond-ts-location ts-auto-query-dir))
     (require 'auto-ly-font-lock-rules)))
 
+(defvar lilypond-ts-indent-offset 2)
+(defvar lilypond-ts-indent-rules
+  `((lilypond
+     ;; Align braces and brackets with the surrounding scope
+     ((node-is "{") parent-bol 0)
+     ((node-is "<<") parent-bol 0)
+     ((node-is "}") parent-bol 0)
+     ((node-is ">>") parent-bol 0)
+     ;; Indent inside curly braces {}
+     ((parent-is "expression_block") parent-bol ,lilypond-ts-indent-offset)
+     ;; Indent inside double angle brackets << >>
+     ((parent-is "parallel_music") parent-bol ,lilypond-ts-indent-offset)
+     ;; Default rule: no additional indentation
+     (no-node parent 0))))
+
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (when lilypond-ts-use-auto-queries
@@ -66,6 +81,8 @@
       (setq-local treesit-font-lock-level 1)
       (setq-local treesit-font-lock-settings
                   (apply #'treesit-font-lock-rules auto-ly-font-lock-rules)))
+    (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
+    (setq-local treesit--indent-verbose t)
     (treesit-parser-create 'lilypond)
     (treesit-major-mode-setup)))
 

@@ -3,7 +3,7 @@ This package provides `lilypond-ts-mode`, an Emacs major mode for Lilypond, usin
 
 It also includes a script to automatically generate Emacs `treesit` font-lock rules using the .scm query files included in the grammar. This script has only been tested on the Lilypond grammar, but it could potentially be applicable to Treesitter grammars generally.
 
-Currently this package is in alpha. `lilypond-ts-mode` enables parsing of Lilypond files using the grammar, and applies automatically generated font-lock rules with heuristic font-face assignments. Indentation hasn't been implemented yet. `lilypond-ts-mode` doesn't yet inherit from the `lilypond-mode` provided as part of Lilypond.
+Currently this package is in alpha. `lilypond-ts-mode` enables parsing of Lilypond files using the grammar, and applies automatically generated font-lock rules with heuristic font-face assignments. Indentation is rudimentary and only handles `{}` and `<< >>` delimited blocks so far. `lilypond-ts-mode` doesn't yet inherit from the `lilypond-mode` provided as part of Lilypond.
 ## Prerequisites
 * Emacs 29+ with `treesit` enabled
 * Git and GCC accessible to Emacs $PATH

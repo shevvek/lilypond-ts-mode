@@ -1,5 +1,8 @@
 ;; -*- lexical-binding: t -*-
-(use-package pcre2el :ensure t)
+(unless (package-installed-p 'pcre2el)
+  (package-refresh-contents)
+  (package-install 'pcre2el))
+(require 'pcre2el)
 
 (defvar ts-auto-query-files nil)
 (defvar ts-auto-query-lang nil)

@@ -74,6 +74,25 @@
      ;; Default rule: no additional indentation
      (no-node parent 0))))
 
+(defvar lilypond-ts-imenu-rules
+  `(("Definitions" "assignment_lhs"
+     ,(lambda (node)
+        (equal "lilypond_program"
+               (treesit-node-type
+                (treesit-node-parent node))))
+     treesit-node-text)
+    ("ParserDefines" "escaped_word"
+     ,(lambda (node)
+        (equal "\\parserDefine"
+               (treesit-node-text node)))
+     ,(lambda (node)
+        (treesit-node-text
+         (treesit-node-next-sibling node))))
+    ("Contexts" "named_context"
+     ,(lambda (node)
+        (= 4 (treesit-node-child-count node)))
+     treesit-node-text)))
+
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (when lilypond-ts-use-auto-queries
@@ -83,6 +102,7 @@
                   (apply #'treesit-font-lock-rules auto-ly-font-lock-rules)))
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
     (setq-local treesit--indent-verbose t)
+    (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (treesit-parser-create 'lilypond)
     (treesit-major-mode-setup)))
 

@@ -59,6 +59,13 @@
                  (file-name-concat lilypond-ts-location ts-auto-query-dir))
     (require 'auto-ly-font-lock-rules)))
 
+(defun lang-block-parent (node &rest _)
+  (treesit-parent-until node
+                        (lambda (n)
+                          (string-match-p (rx (or "embedded_scheme_text"
+                                                  "scheme_embedded_lilypond"))
+                                          (treesit-node-type n)))))
+
 (defvar lilypond-ts-indent-offset 2)
 (defvar lilypond-ts-indent-rules
   `((lilypond
@@ -71,8 +78,26 @@
      ((parent-is "expression_block") parent-bol ,lilypond-ts-indent-offset)
      ;; Indent inside double angle brackets << >>
      ((parent-is "parallel_music") parent-bol ,lilypond-ts-indent-offset)
+     ((parent-is "scheme_embedded_lilypond") parent-bol ,lilypond-ts-indent-offset)
+     ;; Use scheme-mode indentation for embedded Scheme blocks
+     ;; Lilypond embedded within Scheme won't match this rule
+     ((lambda (node &rest _)
+        (string-match-p "embedded_scheme_text"
+                        (treesit-node-type (lang-block-parent node))))
+      ;; anchor Scheme indentation to the parent Scheme block
+      ;; code taken from treesit built-in parent-bol
+      (lambda (node &rest _)
+        (save-excursion
+          (goto-char (treesit-node-start (lang-block-parent node)))
+          (back-to-indentation)
+          (point)))
+      (lambda (node &rest _)
+        (with-syntax-table scheme-mode-syntax-table
+          (calculate-lisp-indent (treesit-node-start
+                                  (lang-block-parent node))))))
      ;; Default rule: no additional indentation
-     (no-node parent 0))))
+     (no-node parent 0)
+     )))
 
 (defvar lilypond-ts-imenu-rules
   `(("Definitions" "assignment_lhs"
@@ -103,6 +128,7 @@
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
     (setq-local treesit--indent-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+    (setq-local lisp-indent-function #'scheme-indent-function)
     (treesit-parser-create 'lilypond)
     (treesit-major-mode-setup)))
 

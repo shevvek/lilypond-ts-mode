@@ -70,6 +70,10 @@
 (defvar lilypond-ts-indent-offset 2)
 (defvar lilypond-ts-indent-rules
   `((lilypond
+     ;; Don't indent wrapped strings
+     (no-node column-0 0)
+     ;; Base top level indentation
+     ((parent-is "lilypond_program") column-0 0)
      ;; Align braces and brackets with the surrounding scope
      ((node-is "{") parent-bol 0)
      ((node-is "<<") parent-bol 0)
@@ -91,8 +95,9 @@
         (with-syntax-table scheme-mode-syntax-table
           (calculate-lisp-indent (treesit-node-start
                                   (lang-block-parent node))))))
-     ;; Default rule: no additional indentation
-     (no-node parent 0)
+
+     ;; Fallback default
+     (catch-all parent 0)
      )))
 
 (defvar lilypond-ts-imenu-rules

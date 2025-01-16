@@ -63,7 +63,8 @@
   (treesit-parent-until node
                         (lambda (n)
                           (string-match-p (rx (or "embedded_scheme_text"
-                                                  "scheme_embedded_lilypond"))
+                                                  "scheme_embedded_lilypond"
+                                                  "lilypond_program"))
                                           (treesit-node-type n)))))
 
 (defvar lilypond-ts-indent-offset 2)
@@ -84,13 +85,8 @@
      ((lambda (node &rest _)
         (string-match-p "embedded_scheme_text"
                         (treesit-node-type (lang-block-parent node))))
-      ;; anchor Scheme indentation to the parent Scheme block
-      ;; code taken from treesit built-in parent-bol
-      (lambda (node &rest _)
-        (save-excursion
-          (goto-char (treesit-node-start (lang-block-parent node)))
-          (back-to-indentation)
-          (point)))
+      ;; calculate-lisp-indent already takes initial indent into account
+      column-0
       (lambda (node &rest _)
         (with-syntax-table scheme-mode-syntax-table
           (calculate-lisp-indent (treesit-node-start

@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t -*-
 (require 'treesit)
 (require 'ts-auto-parse-queries)
 
@@ -73,11 +74,13 @@
   `((lilypond
      ;; Don't indent wrapped strings
      (no-node column-0 0)
+
      ;; Align braces and brackets with the surrounding scope
      ((node-is "{") parent-bol 0)
      ((node-is "<<") parent-bol 0)
      ((node-is "}") parent-bol 0)
      ((node-is ">>") parent-bol 0)
+
      ;; Indent broken assignments
      ((query (((assignment_lhs) :anchor
                ((punctuation) @equals
@@ -85,11 +88,14 @@
                (_) @rhs)))
       prev-line
       lilypond-ts-indent-broken-offset)
+
      ;; Indent inside curly braces {}
-     ((parent-is "expression_block") parent-bol ,lilypond-ts-indent-offset)
+     ((parent-is "expression_block") parent-bol lilypond-ts-indent-offset)
      ;; Indent inside double angle brackets << >>
-     ((parent-is "parallel_music") parent-bol ,lilypond-ts-indent-offset)
-     ((parent-is "scheme_embedded_lilypond") parent-bol ,lilypond-ts-indent-offset)
+     ((parent-is "parallel_music") parent-bol lilypond-ts-indent-offset)
+     ;; Indent inside #{ #}
+     ((parent-is "scheme_embedded_lilypond") parent-bol lilypond-ts-indent-offset)
+
      ;; Use scheme-mode indentation for embedded Scheme blocks
      ;; Lilypond embedded within Scheme won't match this rule
      ((lambda (node &rest _)

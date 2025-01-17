@@ -68,17 +68,23 @@
                                           (treesit-node-type n)))))
 
 (defvar lilypond-ts-indent-offset 2)
+(defvar lilypond-ts-indent-broken-offset lilypond-ts-indent-offset)
 (defvar lilypond-ts-indent-rules
   `((lilypond
      ;; Don't indent wrapped strings
      (no-node column-0 0)
-     ;; Base top level indentation
-     ((parent-is "lilypond_program") column-0 0)
      ;; Align braces and brackets with the surrounding scope
      ((node-is "{") parent-bol 0)
      ((node-is "<<") parent-bol 0)
      ((node-is "}") parent-bol 0)
      ((node-is ">>") parent-bol 0)
+     ;; Indent broken assignments
+     ((query (((assignment_lhs) :anchor
+               ((punctuation) @equals
+                (:match "^=$" @equals)) :anchor
+               (_) @rhs)))
+      prev-line
+      lilypond-ts-indent-broken-offset)
      ;; Indent inside curly braces {}
      ((parent-is "expression_block") parent-bol ,lilypond-ts-indent-offset)
      ;; Indent inside double angle brackets << >>
@@ -96,6 +102,8 @@
           (calculate-lisp-indent (treesit-node-start
                                   (lang-block-parent node))))))
 
+     ;; Base top level indentation
+     ((parent-is "lilypond_program") column-0 0)
      ;; Fallback default
      (catch-all parent 0)
      )))

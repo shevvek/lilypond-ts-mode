@@ -1,5 +1,6 @@
 ;; -*- lexical-binding: t -*-
 (require 'treesit)
+(require 'scheme)
 (require 'ts-auto-parse-queries)
 
 (defvar lilypond-ts-grammar-url
@@ -60,6 +61,42 @@
                  (file-name-concat lilypond-ts-location ts-auto-query-dir))
     (require 'auto-ly-font-lock-rules)))
 
+;; Embedded Scheme
+
+(defun lilypond-ts--scheme-ranges (&optional start end)
+  "Find treesit ranges for embedded Scheme and Lilypond blocks, which may be
+nested. Flatten them into a list of Scheme ranges that excludes embedded blocks
+of Lilypond."
+  (let* ((scheme-ranges (treesit-query-range (treesit-buffer-root-node)
+                                             '((embedded_scheme_text) @capture)
+                                             start end))
+         (ly-ranges (treesit-query-range (treesit-buffer-root-node)
+                                         '((scheme_embedded_lilypond) @capture)
+                                         start end))
+         ;; Make a single list with all the range bounds. Since ranges are
+         ;; dotted pairs, can't simply concatenate them.
+         (boundaries (seq-reduce (lambda (l p)
+                                   (cons (cdr p)
+                                         (cons (car p) l)))
+                                 `(,@scheme-ranges ,@ly-ranges)
+                                 nil))
+         ;; Since treesit queries automatically expand their bounds to the
+         ;; captured node, and since embedded Lilypond will always be inside
+         ;; embedded Scheme, it can be assumed that the lowest Scheme bound will
+         ;; be less than the lowest Lilypond bound.
+         (stripes (seq-split (sort boundaries) 2)))
+    stripes))
+
+(defun lilypond-ts--propertize-syntax (start end)
+  (let ((scheme-ranges (lilypond-ts--scheme-ranges start end)))
+    (with-silent-modifications
+      (put-text-property start end 'syntax-table (syntax-table))
+      (dolist (range scheme-ranges)
+        ;; unclear why calling scheme-propertize-syntax doesn't work
+        ;; maybe it depends on more than just (syntax-table)
+        (put-text-property (car range) (cadr range)
+                           'syntax-table scheme-mode-syntax-table)))))
+
 (defun lang-block-parent (node &rest _)
   (treesit-parent-until node
                         (lambda (n)
@@ -67,6 +104,8 @@
                                                   "scheme_embedded_lilypond"
                                                   "lilypond_program"))
                                           (treesit-node-type n)))))
+
+;; Indentation
 
 (defvar lilypond-ts-indent-offset 2)
 (defvar lilypond-ts-indent-broken-offset lilypond-ts-indent-offset)
@@ -99,20 +138,21 @@
      ;; Use scheme-mode indentation for embedded Scheme blocks
      ;; Lilypond embedded within Scheme won't match this rule
      ((lambda (node &rest _)
-        (string-match-p "embedded_scheme_text"
-                        (treesit-node-type (lang-block-parent node))))
+        (string-equal "embedded_scheme_text"
+                      (treesit-node-type (lang-block-parent node))))
       ;; calculate-lisp-indent already takes initial indent into account
       column-0
       (lambda (node &rest _)
-        (with-syntax-table scheme-mode-syntax-table
-          (calculate-lisp-indent (treesit-node-start
-                                  (lang-block-parent node))))))
+        (calculate-lisp-indent (treesit-node-start
+                                (lang-block-parent node)))))
 
      ;; Base top level indentation
      ((parent-is "lilypond_program") column-0 0)
      ;; Fallback default
      (catch-all parent 0)
      )))
+
+;; Imenu
 
 (defvar lilypond-ts-imenu-rules
   `(("Definitions" "assignment_lhs"
@@ -143,9 +183,12 @@
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
     (setq-local treesit--indent-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
-    (setq-local lisp-indent-function #'scheme-indent-function)
     (treesit-parser-create 'lilypond)
-    (treesit-major-mode-setup)))
+    (treesit-major-mode-setup)
+    (setq-local lisp-indent-function #'scheme-indent-function)
+    (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
+    (when (featurep 'geiser-lilypond-guile)
+      (geiser-mode 1))))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ily\\'" . lilypond-ts-mode))

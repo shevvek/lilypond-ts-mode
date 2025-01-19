@@ -23,23 +23,3 @@ Currently this package is in alpha. `lilypond-ts-mode` enables parsing of Lilypo
 Right now, the installation sets up the major mode to use automatically generated syntax highlighting rules. But you will probably want to modify at least the automatically generated font face mapping located in `auto-queries/auto-ly-font-lock-rules.el`.
 
 Use `(setq lilypond-ts-use-auto-queries nil)` to turn off loading of the automatically generated rules by `lilypond-ts-mode`.
-## TS-Auto-Parse-Queries
-`ts-auto-parse-queries.el` does the following to transform Tree-Sitter native queries into Emacs `treesit` sexp format font-lock rules, as follows:
-1. Prepend to each query:
-   ```
-   :language lilypond
-   :feature <name of query file>
-   ```
-2. Transform anchors and quantifiers as follows:
-   ```
-   * -> :*
-   ? -> :?
-   + -> :+
-   . -> :anchor
-   ```
-3. Use `pcre2el` to transform `#match?` regex clauses into Emacs readable format.
-4. UNTESTED: adjust format of `#equal?` and `#pred?` clauses. `#equal?` clauses *should* work. `#pred?` clauses will require manual editing.
-5. Any other predicate clauses are unsupported currently in Emacs and are deleted.
-6. Define a new Emacs font face for each capture name used in a query, to inherit from standard font lock faces based on keywords included in the capture names. The mapping is defined by `ts-auto-query-font-face-alist`.
-
-Emacs balanced-expression navigation and [pcre2el](https://github.com/joddie/pcre2el) do all the hard work.

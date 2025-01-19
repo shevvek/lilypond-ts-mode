@@ -1,0 +1,3 @@
+[submodule "ts-auto-parse-queries"]
+	path = ts-auto-parse-queries
+	url = git@github.com:shevvek/ts-auto-parse-queries.git

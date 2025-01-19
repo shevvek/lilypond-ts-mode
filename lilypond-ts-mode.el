@@ -1,7 +1,6 @@
 ;; -*- lexical-binding: t -*-
 (require 'treesit)
 (require 'scheme)
-(require 'ts-auto-parse-queries)
 
 (defvar lilypond-ts-grammar-url
   "https://github.com/nwhetsell/tree-sitter-lilypond/")
@@ -9,14 +8,18 @@
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
 
+(add-to-list 'load-path
+             (file-name-concat lilypond-ts-location "ts-auto-parse-queries"))
+(require 'ts-auto-parse-queries)
+
 (defvar lilypond-ts-use-auto-queries t)
 
 (defun lilypond-ts-install-auto-queries (&optional ts-ly-dir)
   (interactive)
-  (unless ts-ly-dir
-    (setq-local ts-ly-dir (read-directory-name
-                           "Local location of tree-sitter-lilypond repo: ")))
-  (let ((default-directory lilypond-ts-location))
+  (let ((default-directory lilypond-ts-location)
+        (grammar-loc (or ts-ly-dir
+                         (read-directory-name
+                          "Local location of tree-sitter-lilypond repo: "))))
     (unless ts-auto-query-lang
       (setq ts-auto-query-lang "lilypond"))
     (unless ts-auto-query-files
@@ -29,7 +32,7 @@
                . "scheme-highlights-builtins")
               ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm"
                . "scheme-highlights-lilypond-builtins"))))
-    (ts-auto-parse-queries ts-ly-dir)))
+    (ts-auto-parse-queries grammar-loc)))
 
 (defun lilypond-ts--legacy-install ()
   (add-to-list 'treesit-language-source-alist

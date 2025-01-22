@@ -38,3 +38,10 @@
          (rest . ,rest))))))
 
 (set-current-module lily-mod)
+
+;; (use-modules (ice-9 session))
+
+;; (define (all-keywords-of-type pred)
+;;   (filter (lambda (binding)
+;;             (pred (module-ref (current-module) binding)))
+;;           (apropos-internal "")))

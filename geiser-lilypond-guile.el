@@ -25,6 +25,39 @@
   (file-name-directory (or load-file-name buffer-file-name)))
 (add-to-list 'geiser-guile-load-path (file-name-concat ly-guile-dir "scm/"))
 
+(setq geiser-guile-extra-keywords
+      '("define-syntax-function"
+        "define-syntax-public"
+        "define-syntax-rule"
+        "define-music-function"
+        "define-scheme-function"
+        "define-void-function"
+        "define-event-function"
+        "define-method"
+        "define-markup-command"
+        "define-markup-list-command"
+        "define-session"
+        "define-session-public"
+        "make-translator"
+        "make-performer"
+        "make-engraver"
+        "make-translator-internal"
+        "make-translator-component"
+        "make-relative"
+        "_i"
+        "G_"
+        "*parser*"
+        "*location*"))
+
+(defun ly-guile--eval-result (code)
+  (string-trim-left
+   (geiser-eval--retort-output (geiser-eval--send/wait code))
+   "\\$[[:digit:]]+ = "))
+
+(defun ly-guile--init-keyword (code)
+  (split-string (ly-guile--eval-result code)
+                "[()[:space:]]+" t))
+
 (defun ly-guile-repl-startup (address)
   (geiser-guile--startup (or address t))
   (geiser-eval--send/wait "(load-from-path \"ly-guile-autodoc.scm\")"))

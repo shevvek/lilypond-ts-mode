@@ -17,6 +17,7 @@
 
 (require 'treesit)
 (require 'scheme)
+(require 'geiser-lilypond-guile)
 
 (defvar lilypond-ts-grammar-url
   "https://github.com/nwhetsell/tree-sitter-lilypond/")
@@ -28,7 +29,7 @@
              (file-name-concat lilypond-ts-location "ts-auto-parse-queries"))
 (require 'ts-auto-parse-queries)
 
-(defvar lilypond-ts-use-auto-queries t)
+(defvar lilypond-ts-use-auto-queries nil)
 
 (defun lilypond-ts-install-auto-queries (&optional ts-ly-dir)
   (interactive)
@@ -80,7 +81,7 @@
                  (file-name-concat lilypond-ts-location ts-auto-query-dir))
     (require 'auto-ly-font-lock-rules)))
 
-;; Embedded Scheme
+;;; Embedded Scheme
 
 (defun lilypond-ts--scheme-ranges (&optional start end)
   "Find treesit ranges for embedded Scheme and Lilypond blocks, which may be
@@ -124,7 +125,7 @@ of Lilypond."
                                                   "lilypond_program"))
                                           (treesit-node-type n)))))
 
-;; Indentation
+;;; Indentation
 
 (defvar lilypond-ts-indent-offset 2)
 (defvar lilypond-ts-indent-broken-offset lilypond-ts-indent-offset)
@@ -171,7 +172,7 @@ of Lilypond."
      (catch-all parent 0)
      )))
 
-;; Imenu
+;;; Imenu
 
 (defvar lilypond-ts-imenu-rules
   `(("Definitions" "assignment_lhs"
@@ -192,22 +193,237 @@ of Lilypond."
         (= 4 (treesit-node-child-count node)))
      treesit-node-text)))
 
+;;; Font lock
+
+(defvar lilypond-ts--lexer-keywords
+  '(;; extracted from lily-lexer.cc
+    ;; override is removed as it is contextually a markup command
+    ;; highlight "markup" and "markuplist" as a markup
+    "accepts" "addlyrics" "alias"  "alternative" "book" "bookpart" "change"
+    "chordmode" "chords" "consists" "context" "default" "defaultchild" "denies"
+    "description" "drummode" "drums" "etc" "figuremode" "figures" "header"
+    "layout" "lyricmode" "lyrics" "lyricsto" "midi" "name" "new" "notemode"
+    "paper" "remove" "repeat" "rest" "revert" "score" "sequential" "set"
+    "simultaneous" "tempo" "type" "unset" "with"))
+
+(defvar lilypond-ts--other-keywords
+  nil)
+
+(setq lilypond-ts--other-keywords
+      '("absolute" "acciaccatura" "after" "afterGrace" "alterBroken"
+        "appendToTag" "applyContext" "applyMusic" "applyOutput" "appoggiatura"
+        "autoChange" "cadenzaOff" "cadenzaOn" "compoundMeter"
+        "contextPropertyCheck" "cueDuring" "cueDuringWithClef" "fixed" "grace"
+        "hide" "keepWithTag" "language" "languageRestore"
+        "languageSaveAndChange" "markupMap" "omit" "once" "ottava"
+        "overrideProperty" "parallelMusic" "partCombine" "partial"
+        "popContextProperty" "propertyOverride" "propertyRevert" "propertySet"
+        "propertyTweak" "propertyUnset" "pushContextProperty" "pushToTag"
+        "quoteDuring" "relative" "removeWithTag" "scaleDurations" "settingsFrom"
+        "single" "slashedGrace" "stopStaff" "tag" "tagGroup" "temporary" "time"
+        "times" "transpose" "transposedCueDuring" "transposition" "tuplet"
+        "tweak" "undo" "unfoldRepeats" "unfolded" "void" "volta"))
+
+(defvar lilypond-ts--contexts
+  nil)
+
+(defvar lilypond-ts--grobs
+  nil)
+
+(defvar lilypond-ts--translators
+  nil)
+
+(defvar lilypond-ts--markup-functions
+  nil)
+
+(defvar lilypond-ts--post-events
+  nil)
+
+(defvar lilypond-ts--custom-events
+  nil)
+
+(defun lilypond-ts--fontify-scheme (node override start end &rest _)
+  (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
+                                                   (treesit-node-end node))))
+    (dolist (range-interval scheme-ranges)
+      (apply #'geiser-syntax--fontify-syntax-region range-interval))))
+
+(defun lilypond-ts--init-keywords ()
+  (setq lilypond-ts--contexts
+        `("Timing" "Bottom" .
+          ,(ly-guile--init-keyword
+            '(map car (ly:output-find-context-def $defaultlayout))
+            )))
+  (setq lilypond-ts--translators
+        (ly-guile--init-keyword
+         '(map ly:translator-name (ly:get-all-translators))
+         ))
+  (setq lilypond-ts--grobs
+        (ly-guile--init-keyword
+         '(map car all-grob-descriptions)
+         ))
+  (setq lilypond-ts--markup-functions
+        (mapcar
+         (lambda (str)
+           (string-trim-right str "-markup\\(-list\\)?"))
+         (ly-guile--init-keyword
+          '((@ (geiser doc) all-keywords-of-type)
+            (lambda (s)
+              (or (markup-function? s)
+                  (markup-list-function? s)))))))
+  (setq lilypond-ts--post-events
+        (seq-remove (lambda (str)
+                      (string-match-p (rx bol "#{"
+                                          (* anything)
+                                          "}#" eol)
+                                      str))
+                    (ly-guile--init-keyword
+                     '((@ (geiser doc) all-keywords-of-type)
+                       ly:event?)))))
+
+(defun lilypond-ts--maybe-init-keywords ()
+  (when (and (null lilypond-ts--contexts)
+             (null lilypond-ts--translators)
+             (null lilypond-ts--grobs)
+             (null lilypond-ts--markup-functions)
+             (featurep 'geiser-lilypond-guile))
+    (if (seq-contains-p (geiser-repl--repl-list)
+                        '(lilypond-guile))
+        (lilypond-ts--init-keywords)
+      (with-temp-buffer
+        (geiser-mode 1)
+        (lilypond-ts--init-keywords)))))
+
+(defun lilypond-ts--object-node-p (node)
+  (seq-contains-p `(,@lilypond-ts--contexts
+                    ,@lilypond-ts--grobs
+                    ,@lilypond-ts--translators)
+                  (treesit-node-text node)))
+
+(defun lilypond-ts--font-lock-rules ()
+  `(
+    :default-language lilypond
+
+    :feature comment
+    ((comment) @font-lock-comment-face)
+
+    :feature string
+    (((string) @font-lock-string-face)
+     ((string (escape_sequence) @font-lock-escape-face)))
+
+    :feature escaped-word
+    ((escaped_word) @font-lock-variable-use-face)
+
+    :feature scheme
+    ((embedded_scheme_text) @lilypond-ts--fontify-scheme)
+
+    :feature object
+    (((symbol) @font-lock-type-face
+      (:match ,(eval `(rx bol (or ,@lilypond-ts--contexts
+                                  ,@lilypond-ts--grobs)
+                          eol))
+              @font-lock-type-face))
+     ((escaped_word) @font-lock-type-face
+      (:match ,(eval `(rx bol "\\" (or ,@lilypond-ts--contexts)
+                          eol))
+              @font-lock-type-face)))
+
+    :feature object
+    :override prepend
+    (((symbol) @bold
+      (:match ,(eval `(rx bol (or ,@lilypond-ts--contexts)
+                          eol))
+              @bold))
+     ((escaped_word) @bold
+      (:match ,(eval `(rx bol "\\" (or ,@lilypond-ts--contexts)
+                          eol))
+              @bold)))
+
+    :feature number
+    (([(fraction)
+       (decimal_number)] @font-lock-number-face)
+     ((unsigned_integer) @bold
+      :anchor
+      (punctuation ".") @bold :*))
+
+    :feature number
+    :override t
+    (((escaped_word) @bold
+      (:match ,(rx bol "\\" (or "breve" "longa" "maxima") eol)
+              @bold))
+     ((punctuation "*") @bold :anchor
+      [(fraction)
+       (decimal_number)
+       (unsigned_integer)] @bold))
+
+    :feature markup
+    :override t
+    (((escaped_word) @font-lock-function-call-face
+      (:match ,(eval `(rx bol "\\" (or "markup" "markuplist"
+                                       ,@lilypond-ts--markup-functions)
+                          eol))
+              @font-lock-function-call-face)))
+
+    :feature keyword
+    :override t
+    (((escaped_word) @font-lock-keyword-face
+      (:match ,(eval `(rx bol "\\" (or "include" "maininput" "version"
+                                       ,@lilypond-ts--lexer-keywords
+                                       ,@lilypond-ts--other-keywords)
+                          eol))
+              @font-lock-keyword-face))
+     (((escaped_word) @font-lock-keyword-face
+       (:match "\\\\override" @font-lock-keyword-face))
+      :anchor (assignment_lhs (property_expression))))
+
+    :feature expression
+    :override t
+    (((dynamic) @font-lock-builtin-face)
+     (((escaped_word) @font-lock-builtin-face
+       (:match  ,(eval `(rx bol (? "\\") ;; optional in order to match \^ and \-
+                            (or ,@lilypond-ts--post-events
+                                ,@lilypond-ts--custom-events)
+                            eol))
+                @font-lock-builtin-face)))
+     ((punctuation ["-" "_" "^"]) @font-lock-builtin-face
+      :anchor
+      (punctuation ["!" "." "-" "^" "_" ">" "+"]) @font-lock-builtin-face)
+     ((punctuation ":") @font-lock-builtin-face
+      :anchor
+      (unsigned_integer) @font-lock-builtin-face))
+    ))
+
+;;; Mode-init
+
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
-    (when lilypond-ts-use-auto-queries
-      (setq-local treesit-font-lock-feature-list auto-ly-font-lock-features)
-      (setq-local treesit-font-lock-level 1)
-      (setq-local treesit-font-lock-settings
-                  (apply #'treesit-font-lock-rules auto-ly-font-lock-rules)))
+    (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
+    (if lilypond-ts-use-auto-queries
+        (progn
+          (setq-local treesit-font-lock-feature-list auto-ly-font-lock-features)
+          (setq-local treesit-font-lock-level 1)
+          (setq-local treesit-font-lock-settings
+                      (apply #'treesit-font-lock-rules auto-ly-font-lock-rules)))
+      (progn
+        (lilypond-ts--maybe-init-keywords)
+        (setq-local treesit-font-lock-settings
+                    (apply #'treesit-font-lock-rules
+                           (lilypond-ts--font-lock-rules)))
+        (setq-local treesit-font-lock-feature-list
+                    '((comment string escaped-word)
+                      (keyword scheme expression object markup)
+                      (number)))
+        (setq-local treesit-font-lock-level 3)))
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
-    (setq-local treesit--indent-verbose t)
+    ;; (setq-local treesit--indent-verbose t)
+    ;; (setq-local treesit--font-lock-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
-    (treesit-parser-create 'lilypond)
     (treesit-major-mode-setup)
-    (setq-local lisp-indent-function #'scheme-indent-function)
-    (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
     (when (featurep 'geiser-lilypond-guile)
-      (geiser-mode 1))))
+      (geiser-mode 1))
+    (setq-local lisp-indent-function #'scheme-indent-function)
+    (setq-local syntax-propertize-function
+                #'lilypond-ts--propertize-syntax)))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ily\\'" . lilypond-ts-mode))

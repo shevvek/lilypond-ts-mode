@@ -37,6 +37,11 @@
          (keyword . ,kw-args)
          (rest . ,rest))))))
 
+(define-public (all-keywords-of-type pred)
+  (filter (lambda (binding)
+            (pred (module-ref (current-module) binding)))
+          (apropos-internal "")))
+
 (set-current-module lily-mod)
 
 ;; (use-modules (ice-9 session))

@@ -393,6 +393,30 @@ of Lilypond."
       (unsigned_integer) @font-lock-builtin-face))
     ))
 
+;;; Completion
+
+(defsubst lilypond-ts--completion-list (prefix)
+  (geiser-eval--send/result `(:eval (music-completions ,prefix))))
+
+(defun lilypond-ts--music-capf (&optional predicate)
+  (and-let* ((this-node (treesit-node-at (point)))
+             ((not (string-equal "embedded_scheme_text"
+                                 (treesit-node-type
+                                  (lang-block-parent this-node)))))
+             (bounds (bounds-of-thing-at-point 'symbol))
+             (start (car bounds))
+             (end (cdr bounds))
+             ((and (message "%s" bounds)
+                   (< start end)))
+             (prefix (buffer-substring-no-properties start end))
+             (cmps (lilypond-ts--completion-list prefix)))
+    (list start end cmps
+          :company-docsig
+          (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
+          :company-doc-buffer #'geiser-capf--company-doc-buffer
+          :company-location #'geiser-capf--company-location
+          :exclusive t)))
+
 ;;; Mode-init
 
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
@@ -421,6 +445,7 @@ of Lilypond."
     (treesit-major-mode-setup)
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1))
+    (add-hook 'completion-at-point-functions #'lilypond-ts--music-capf nil t)
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function
                 #'lilypond-ts--propertize-syntax)))

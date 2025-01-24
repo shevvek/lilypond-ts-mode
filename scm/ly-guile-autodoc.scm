@@ -42,11 +42,21 @@
             (pred (module-ref (current-module) binding)))
           (apropos-internal "")))
 
+(define-public (music-completions prefix)
+  (let ((prefix (string-append "^" (regexp-quote prefix))))
+    (sort! (filter-map (lambda (s)
+                         (let ((c (ly:parser-lookup s)))
+                           (and (or (ly:music? c)
+                                    (ly:music-function? c)
+                                    (ly:context-mod? c)
+                                    (ly:translator? c)
+                                    (markup? c)
+                                    (markup-function? c)
+                                    (markup-list-function? c)
+                                    (and (markup-list? c)
+                                         (pair? c)))
+                                (symbol->string s))))
+                       (apropos-internal prefix))
+           string<?)))
+
 (set-current-module lily-mod)
-
-;; (use-modules (ice-9 session))
-
-;; (define (all-keywords-of-type pred)
-;;   (filter (lambda (binding)
-;;             (pred (module-ref (current-module) binding)))
-;;           (apropos-internal "")))

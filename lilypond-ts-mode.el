@@ -377,7 +377,7 @@ REPL to initialize word lists."))
               @font-lock-keyword-face))
      (((escaped_word) @font-lock-keyword-face
        (:match "\\\\override" @font-lock-keyword-face))
-      :anchor (assignment_lhs (property_expression))))
+      :anchor (property_expression)))
 
     :feature expression
     :override t
@@ -394,10 +394,19 @@ REPL to initialize word lists."))
      ((punctuation ":") @font-lock-builtin-face
       :anchor
       (unsigned_integer) @font-lock-builtin-face))
+
+    :feature expression
+    :override prepend
+    (((dynamic) @bold)
+     ((punctuation ["-" "_" "^"]) @bold
+      :anchor
+      (punctuation ["!" "." "-" "^" "_" ">" "+"]) @bold)
+     ;; ((escaped_word) @bold
+     ;;  (:match  "\\\\[[:punct:]rsmfpz]+" @bold))
+     )
     ))
 
 ;;; Completion
-
 
 (defsubst lilypond-ts--context-p (str)
   (seq-contains-p lilypond-ts--contexts str))
@@ -545,7 +554,8 @@ REPL to initialize word lists."))
           (setq-local treesit-font-lock-feature-list auto-ly-font-lock-features)
           (setq-local treesit-font-lock-level 1)
           (setq-local treesit-font-lock-settings
-                      (apply #'treesit-font-lock-rules auto-ly-font-lock-rules)))
+                      (apply #'treesit-font-lock-rules
+                             auto-ly-font-lock-rules)))
       (progn
         (lilypond-ts--maybe-init-keywords)
         (setq-local treesit-font-lock-settings

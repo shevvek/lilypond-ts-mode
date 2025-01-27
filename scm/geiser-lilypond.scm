@@ -83,8 +83,10 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
       (ly:score? obj)
       (ly:book? obj)
       (markup? obj)
-      (markup-function? obj)
-      (markup-list-function? obj)
+      ;; These are handled elsewhere since markup functions need their names
+      ;; stripped of the -markup(-list) suffix
+      ;; (markup-function? obj)
+      ;; (markup-list-function? obj)
       (and (markup-list? obj)
            (pair? obj))))
 

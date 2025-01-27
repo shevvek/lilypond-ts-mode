@@ -81,6 +81,10 @@
                  (file-name-concat lilypond-ts-location ts-auto-query-dir))
     (require 'auto-ly-font-lock-rules)))
 
+;;; Options
+
+(defvar lilypond-ts--debug-msgs nil)
+
 ;;; Embedded Scheme
 
 (defun lilypond-ts--scheme-ranges (&optional start end)
@@ -395,6 +399,17 @@ REPL to initialize word lists."))
 ;;; Completion
 
 
+(defsubst lilypond-ts--context-p (str)
+  (seq-contains-p lilypond-ts--contexts str))
+
+(defsubst lilypond-ts--grob-p (str)
+  (eq :t (geiser-eval--send/result
+          `(:eval (object-property (string->symbol ,str) 'is-grob?)))))
+
+(defsubst lilypond-ts--grob-property-p (str)
+  (eq :t (geiser-eval--send/result
+          `(:eval (object-property (string->symbol ,str) 'backend-type?)))))
+
 (defun lilypond-ts--completion-list (prefix)
   (append
    '("include" "maininput" "version"
@@ -405,6 +420,105 @@ REPL to initialize word lists."))
    (geiser-eval--send/result `(:eval (ly:all-grob-names)))
    (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
                                                        ,prefix)))))
+
+;; Candidates to add to this list can be queried by running:
+;; (keywords-of-type ly:accepts-maybe-property-path?) in the Geiser REPL
+(defvar lilypond-ts--context-property-functions
+  '("contextPropertyCheck" "popContextProperty" "propertySet" "propertyUnset"
+    "pushContextProperty" "set" "unset"))
+
+(defvar lilypond-ts--grob-property-functions
+  ;; \footnote is excluded since the grob path argument is after arguments that
+  ;; are likely to include \-escaped words, so \footnote won't be found by
+  ;; searching backward from the property expression to the first escaped_word.
+  ;; Note that some of these accept only a grob path, not a grob-property path.
+  ;; Currently, grob property completions will still be offered if the user adds
+  ;; a . following the grob name.
+  '("alterBroken" "applyOutput" "hide" "offset" "omit" "override"
+    "overrideProperty" "parenthesize" "propertyOverride" "propertyRevert"
+    "propertyTweak" "revert" "shape" "styledNoteHeads" "tweak" "vshape"))
+
+(defun lilypond-ts--property-completions (&optional node)
+  "All valid symbols for the current node within a Lilypond property expression"
+  (let* ((this-node (or node
+                        (treesit-node-at (point))))
+         (parent-node (treesit-node-parent this-node))
+         (prop-ex-p (treesit-node-match-p parent-node "property_expression"))
+         (func-node (treesit-search-forward this-node "escaped_word" t))
+         (func-text (string-trim-left (treesit-node-text func-node t)
+                                      "\\\\"))
+         (left-sib (when prop-ex-p (treesit-node-prev-sibling
+                                    (treesit-node-prev-sibling this-node))))
+         (left-sib (if (treesit-node-match-p left-sib "property_expression")
+                       (car (last (treesit-node-children left-sib)))
+                     left-sib))
+         (right-sib (when prop-ex-p (treesit-node-next-sibling
+                                     (treesit-node-next-sibling this-node))))
+         (left-text (treesit-node-text left-sib t))
+         (right-text (treesit-node-text right-sib t))
+         (left-ctx-p (when left-sib
+                       (seq-contains-p lilypond-ts--contexts left-text)))
+         (left-grob-p (when (and left-sib
+                                 (not left-ctx-p))
+                        (lilypond-ts--grob-p left-text)))
+         (right-grob-p (when right-sib
+                         (lilypond-ts--grob-p right-text)))
+         (right-grob-prop-p (when (and right-sib
+                                       (not right-grob-p))
+                              (lilypond-ts--grob-property-p right-text)))
+         (right-ctx-prop-p
+          (when (and right-sib
+                     (not right-grob-p)
+                     (not right-grob-prop-p))
+            (eq :t (geiser-eval--send/result
+                    `(:eval (object-property (string->symbol ,right-text)
+                                             'translation-type?)))))))
+    (when lilypond-ts--debug-msgs
+      (message "Debug lilypond-ts--property-completions: %s %s %s"
+               func-text left-text right-text))
+    (when (and (treesit-node-match-p this-node "symbol")
+               (or prop-ex-p
+                   (seq-contains-p lilypond-ts--context-property-functions
+                                   func-text)
+                   (seq-contains-p lilypond-ts--grob-property-functions
+                                   func-text)))
+      (append
+       (when (and (not left-sib)
+                  (or (not right-sib) right-grob-p right-ctx-prop-p))
+         lilypond-ts--contexts)
+       (when (and (not (seq-contains-p lilypond-ts--context-property-functions
+                                       func-text))
+                  (or (not left-sib) left-ctx-p)
+                  (or (not right-sib) right-grob-prop-p))
+         lilypond-ts--grobs)
+       (when left-grob-p
+         (geiser-eval--send/result
+          `(:eval (ly:grob-property-completions ,left-text ,right-text))))
+       (when (and (not (seq-contains-p lilypond-ts--grob-property-functions
+                                       func-text))
+                  (or (not left-sib) left-ctx-p))
+         (geiser-eval--send/result '(:eval all-translation-properties)))))))
+
+(defun lilypond-ts--property-capf (&optional predicate)
+  (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
+             (this-node (treesit-node-at (point)))
+             (this-node (if (treesit-node-match-p this-node "punctuation")
+                            (treesit-node-at (1- (point)))
+                          this-node))
+             ((treesit-node-match-p this-node "symbol"))
+             (start (treesit-node-start this-node))
+             (end (treesit-node-end this-node))
+             ((< start end))
+             (prefix (treesit-node-text this-node t))
+             (cmps (lilypond-ts--property-completions this-node)))
+    (list start end
+          (completion-table-dynamic (lambda (pfx)
+                                      cmps))
+          :company-docsig
+          (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
+          :company-doc-buffer #'geiser-capf--company-doc-buffer
+          :company-location #'geiser-capf--company-location)))
+
 (defun lilypond-ts--music-capf (&optional predicate)
   (and-let* ((this-node (treesit-node-at (point)))
              ((not (string-equal "embedded_scheme_text"
@@ -454,6 +568,7 @@ REPL to initialize word lists."))
     (treesit-major-mode-setup)
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1))
+    (add-hook 'completion-at-point-functions #'lilypond-ts--property-capf nil t)
     (add-hook 'completion-at-point-functions #'lilypond-ts--music-capf nil t)
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function

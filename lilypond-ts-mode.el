@@ -558,6 +558,11 @@ REPL to initialize word lists."))
           :company-location #'geiser-capf--company-location
           :exclusive t)))
 
+;;; Thing
+
+(defvar lilypond-ts--thing-settings
+  '(symbol (or "symbol" "escaped_word" "scheme_symbol")))
+
 ;;; Mode-init
 
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"

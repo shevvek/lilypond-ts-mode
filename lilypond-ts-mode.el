@@ -396,6 +396,17 @@ of Lilypond."
 ;;; Completion
 
 
+(defsubst lilypond-ts--context-p (str)
+  (seq-contains-p lilypond-ts--contexts str))
+
+(defsubst lilypond-ts--grob-p (str)
+  (eq :t (geiser-eval--send/result
+          `(:eval (object-property (string->symbol ,str) 'is-grob?)))))
+
+(defsubst lilypond-ts--grob-property-p (str)
+  (eq :t (geiser-eval--send/result
+          `(:eval (object-property (string->symbol ,str) 'backend-type?)))))
+
 (defun lilypond-ts--completion-list (prefix)
   (append
    '("include" "maininput" "version"
@@ -406,6 +417,95 @@ of Lilypond."
    (geiser-eval--send/result `(:eval (ly:all-grob-names)))
    (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
                                                        ,prefix)))))
+
+(defun lilypond-ts--property-completions (&optional predicate)
+  (let* ((this-node (treesit-node-at (point)))
+         (start (treesit-node-start this-node))
+         (parent-node (treesit-node-parent this-node))
+         (prop-ex-p (string-equal "property_expression"
+                                  (treesit-node-type parent-node)))
+         (func-node (treesit-search-forward this-node "escaped_word" t))
+         (func-text (string-trim-left (treesit-node-text func-node t)
+                                      "\\\\"))
+         (left-sib (when prop-ex-p (treesit-node-prev-sibling
+                                    (treesit-node-prev-sibling this-node))))
+         (left-sib (if (treesit-node-match-p left-sib "property_expression")
+                       (car (last (treesit-node-children left-sib)))
+                     left-sib))
+         (right-sib (when prop-ex-p (treesit-node-next-sibling
+                                     (treesit-node-next-sibling this-node))))
+         (left-text (treesit-node-text left-sib t))
+         (right-text (treesit-node-text right-sib t))
+         (left-ctx-p (when left-sib
+                       (seq-contains-p lilypond-ts--contexts left-text)))
+         (left-grob-p (when (and left-sib
+                                 (not left-ctx-p))
+                        (lilypond-ts--grob-p left-text)))
+         (right-grob-p (when right-sib
+                         (lilypond-ts--grob-p right-text)))
+         (right-grob-prop-p (when (and right-sib
+                                       (not right-grob-p))
+                              (lilypond-ts--grob-property-p right-text)))
+         (right-ctx-prop-p
+          (when (and right-sib
+                     (not right-grob-p)
+                     (not right-grob-prop-p))
+            (eq :t (geiser-eval--send/result
+                    `(:eval (object-property (string->symbol ,str)
+                                             'translation-type?)))))))
+    (when (and (string-equal "symbol" (treesit-node-type this-node))
+               (or prop-ex-p
+                   (seq-contains-p lilypond-ts--property-functions
+                                   func-text)))
+      (append
+       (when (and (not left-sib)
+                  (or (not right-sib) right-grob-p right-ctx-prop-p))
+         lilypond-ts--contexts)
+       (when (and (not (seq-contains-p '("set" "unset")
+                                       func-text))
+                  (or (not left-sib) left-ctx-p)
+                  (or (not right-sib) right-grob-prop-p))
+         lilypond-ts--grobs)
+       (when left-grob-p
+         (geiser-eval--send/result
+          `(:eval (ly:grob-property-completions (string->symbol ,left-text)
+                                                ,right-text))))
+       (when (and (not (seq-contains-p '("override" "revert" "omit"
+                                         "hide" "tweak")
+                                       func-text))
+                  (or (not left-sib) left-ctx-p))
+         (geiser-eval--send/result '(:eval all-translation-properties)))))))
+
+;; \set _ : Ctx, translatorProp
+
+;; \override _ : Ctx, Grob
+
+;; Ctx._ : Grob, translatorProp
+
+;; \set Ctx._ : translatorProp
+
+;; \override Ctx._ : Grob
+
+;; ...Grob._ : grobProp
+
+;; ...property._ : ?
+
+;; _.Grob : Ctx
+
+;; _.property : Ctx or Grob based on prop type
+
+       ;;;;
+
+;; Ctx : unless left-sib
+;;       when right-sib is nil, Grob, or translatorProp
+;; Grob : unless \set
+;;        when left sib is nil or Ctx, right-sib is nil or grobProp
+;; grobProp: when left sib is Grob
+;; translatorProp: unless \override
+;;                 when left-sib is nil or Ctx
+
+;; \consists _ || \remove _ : Translator
+
 (defun lilypond-ts--music-capf (&optional predicate)
   (and-let* ((this-node (treesit-node-at (point)))
              ((not (string-equal "embedded_scheme_text"

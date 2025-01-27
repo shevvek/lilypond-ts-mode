@@ -410,17 +410,6 @@ REPL to initialize word lists."))
   (eq :t (geiser-eval--send/result
           `(:eval (object-property (string->symbol ,str) 'backend-type?)))))
 
-(defun lilypond-ts--completion-list (prefix)
-  (append
-   '("include" "maininput" "version"
-     "breve" "longa" "maxima")
-   lilypond-ts--lexer-keywords
-   lilypond-ts--contexts
-   (geiser-eval--send/result `(:eval (ly:all-translator-names)))
-   (geiser-eval--send/result `(:eval (ly:all-grob-names)))
-   (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
-                                                       ,prefix)))))
-
 ;; Candidates to add to this list can be queried by running:
 ;; (keywords-of-type ly:accepts-maybe-property-path?) in the Geiser REPL
 (defvar lilypond-ts--context-property-functions
@@ -509,7 +498,6 @@ REPL to initialize word lists."))
              (start (treesit-node-start this-node))
              (end (treesit-node-end this-node))
              ((< start end))
-             (prefix (treesit-node-text this-node t))
              (cmps (lilypond-ts--property-completions this-node)))
     (list start end
           (completion-table-dynamic (lambda (pfx)
@@ -519,21 +507,28 @@ REPL to initialize word lists."))
           :company-doc-buffer #'geiser-capf--company-doc-buffer
           :company-location #'geiser-capf--company-location)))
 
-(defun lilypond-ts--music-capf (&optional predicate)
-  (and-let* ((this-node (treesit-node-at (point)))
-             ((not (string-equal "embedded_scheme_text"
-                                 (treesit-node-type
-                                  (lang-block-parent this-node)))))
-             (bounds (bounds-of-thing-at-point 'symbol))
-             (start (car bounds))
-             (end (cdr bounds))
-             ((and (message "%s" bounds)
-                   (< start end)))
-             (prefix (buffer-substring-no-properties start end))
-             ;;(cmps (lilypond-ts--completion-list prefix))
-             )
+(defun lilypond-ts--escaped-word-completions (&optional pfx)
+  (let ((pfx (or pfx "")))
+    (append
+     '("include" "maininput" "version"
+       "markup" "markuplist" ;; since these are omitted from lexer-keywords list
+       "breve" "longa" "maxima")
+     lilypond-ts--lexer-keywords
+     lilypond-ts--contexts
+     lilypond-ts--markup-functions
+     (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
+                                                         ,pfx))))))
+
+(defun lilypond-ts--escaped-word-capf (&optional predicate)
+  (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
+             (this-node (treesit-node-at (point)))
+             ((treesit-node-match-p this-node "escaped_word"))
+             (start (1+ (treesit-node-start this-node)))
+             (end (treesit-node-end this-node))
+             ((< start end)))
     (list start end
-          (completion-table-dynamic #'lilypond-ts--completion-list)
+          (completion-table-dynamic (lambda (pfx)
+                                      (lilypond-ts--escaped-word-completions)))
           :company-docsig
           (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
           :company-doc-buffer #'geiser-capf--company-doc-buffer
@@ -568,8 +563,10 @@ REPL to initialize word lists."))
     (treesit-major-mode-setup)
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1))
-    (add-hook 'completion-at-point-functions #'lilypond-ts--property-capf nil t)
-    (add-hook 'completion-at-point-functions #'lilypond-ts--music-capf nil t)
+    (add-hook 'completion-at-point-functions
+              #'lilypond-ts--property-capf nil t)
+    (add-hook 'completion-at-point-functions
+              #'lilypond-ts--escaped-word-capf nil t)
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function
                 #'lilypond-ts--propertize-syntax)))

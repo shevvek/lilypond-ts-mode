@@ -83,7 +83,7 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
 
 (define-public (ly:all-context-names)
   (cons* 'Bottom 'Timing
-         (map car (ly:output-description (ly:parser-lookup $defaultlayout)))))
+         (map car (ly:output-description (ly:parser-lookup '$defaultlayout)))))
 
 (define-public (ly:all-translator-names)
   (map ly:translator-name (ly:get-all-translators)))

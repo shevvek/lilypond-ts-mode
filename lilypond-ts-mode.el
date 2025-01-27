@@ -247,10 +247,11 @@ of Lilypond."
   nil)
 
 (defun lilypond-ts--fontify-scheme (node override start end &rest _)
-  (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
-                                                   (treesit-node-end node))))
-    (dolist (range-interval scheme-ranges)
-      (apply #'geiser-syntax--fontify-syntax-region range-interval))))
+  (when (featurep 'geiser-lilypond-guile)
+    (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
+                                                     (treesit-node-end node))))
+      (dolist (range-interval scheme-ranges)
+        (apply #'geiser-syntax--fontify-syntax-region range-interval)))))
 
 (defun lilypond-ts--init-keywords ()
   (setq lilypond-ts--contexts
@@ -572,11 +573,11 @@ REPL to initialize word lists."))
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (treesit-major-mode-setup)
     (when (featurep 'geiser-lilypond-guile)
-      (geiser-mode 1))
-    (add-hook 'completion-at-point-functions
-              #'lilypond-ts--property-capf nil t)
-    (add-hook 'completion-at-point-functions
-              #'lilypond-ts--escaped-word-capf nil t)
+      (geiser-mode 1)
+      (add-hook 'completion-at-point-functions
+                #'lilypond-ts--property-capf nil t)
+      (add-hook 'completion-at-point-functions
+                #'lilypond-ts--escaped-word-capf nil t))
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function
                 #'lilypond-ts--propertize-syntax)))

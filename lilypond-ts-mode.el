@@ -395,9 +395,17 @@ of Lilypond."
 
 ;;; Completion
 
-(defsubst lilypond-ts--completion-list (prefix)
-  (geiser-eval--send/result `(:eval (music-completions ,prefix))))
 
+(defun lilypond-ts--completion-list (prefix)
+  (append
+   '("include" "maininput" "version"
+     "breve" "longa" "maxima")
+   lilypond-ts--lexer-keywords
+   lilypond-ts--contexts
+   (geiser-eval--send/result `(:eval (ly:all-translator-names)))
+   (geiser-eval--send/result `(:eval (ly:all-grob-names)))
+   (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
+                                                       ,prefix)))))
 (defun lilypond-ts--music-capf (&optional predicate)
   (and-let* ((this-node (treesit-node-at (point)))
              ((not (string-equal "embedded_scheme_text"
@@ -409,8 +417,10 @@ of Lilypond."
              ((and (message "%s" bounds)
                    (< start end)))
              (prefix (buffer-substring-no-properties start end))
-             (cmps (lilypond-ts--completion-list prefix)))
-    (list start end cmps
+             ;;(cmps (lilypond-ts--completion-list prefix))
+             )
+    (list start end
+          (completion-table-dynamic #'lilypond-ts--completion-list)
           :company-docsig
           (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
           :company-doc-buffer #'geiser-capf--company-doc-buffer

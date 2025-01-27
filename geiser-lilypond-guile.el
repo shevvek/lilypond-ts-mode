@@ -60,7 +60,7 @@
 
 (defun ly-guile-repl-startup (address)
   (geiser-guile--startup (or address t))
-  (geiser-eval--send/wait "(load-from-path \"ly-guile-autodoc.scm\")"))
+  (geiser-eval--send/wait '(:eval (use-modules (geiser-lilypond)))))
 
 (defun ly-guile--symbol-begin (module)
   (if (and (featurep 'treesit)

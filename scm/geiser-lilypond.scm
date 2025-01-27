@@ -107,7 +107,10 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
 
 (define*-public (ly:grob-property-completions grob-name
                                               #:optional (subprop '()))
-  (let* ((interfaces (assq-ref (assq-ref (assq-ref all-grob-descriptions
+  (let* ((grob-name (if (string? grob-name)
+                        (string->symbol grob-name)
+                        grob-name))
+         (interfaces (assq-ref (assq-ref (assq-ref all-grob-descriptions
                                                    grob-name)
                                          'meta)
                                'interfaces))
@@ -121,3 +124,16 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
                   (eq? symbol-key-alist?
                        (object-property p 'backend-type?)))
                 all-props))))
+
+(define-public (ly:accepts-maybe-property-path? f)
+  "Return #t for music-functions that accept an argument of type that might be
+a property expression e.g. Context.ctxProp or [Context.]Grob.grobProp."
+  (and (ly:music-function? f)
+       (pair? (lset-intersection eq?
+                                 (list symbol-list?
+                                       symbol-list-or-music?
+                                       symbol-list-or-symbol?
+                                       key-list-or-music?
+                                       key-list-or-symbol?
+                                       key-list?)
+                                 (cdr (ly:music-function-signature f))))))

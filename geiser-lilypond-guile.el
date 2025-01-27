@@ -49,15 +49,6 @@
         "*parser*"
         "*location*"))
 
-(defun ly-guile--eval-result (code)
-  (string-trim-left
-   (geiser-eval--retort-output (geiser-eval--send/wait code))
-   "\\$[[:digit:]]+ = "))
-
-(defun ly-guile--init-keyword (code)
-  (split-string (ly-guile--eval-result code)
-                "[()[:space:]]+" t))
-
 (defun ly-guile-repl-startup (address)
   (geiser-guile--startup (or address t))
   (geiser-eval--send/wait '(:eval (use-modules (geiser-lilypond)))))

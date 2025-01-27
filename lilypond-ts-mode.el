@@ -250,49 +250,48 @@ of Lilypond."
 
 (defun lilypond-ts--init-keywords ()
   (setq lilypond-ts--contexts
-        `("Timing" "Bottom" .
-          ,(ly-guile--init-keyword
-            '(map car (ly:output-find-context-def $defaultlayout))
-            )))
+        (mapcar #'symbol-name
+                (geiser-eval--send/result '(:eval (ly:all-context-names)))))
   (setq lilypond-ts--translators
-        (ly-guile--init-keyword
-         '(map ly:translator-name (ly:get-all-translators))
-         ))
+        (mapcar #'symbol-name
+                (geiser-eval--send/result '(:eval (ly:all-translator-names)))))
   (setq lilypond-ts--grobs
-        (ly-guile--init-keyword
-         '(map car all-grob-descriptions)
-         ))
+        (mapcar #'symbol-name
+                (geiser-eval--send/result '(:eval (ly:all-grob-names)))))
   (setq lilypond-ts--markup-functions
         (mapcar
-         (lambda (str)
-           (string-trim-right str "-markup\\(-list\\)?"))
-         (ly-guile--init-keyword
-          '((@ (geiser doc) all-keywords-of-type)
-            (lambda (s)
-              (or (markup-function? s)
-                  (markup-list-function? s)))))))
+         (lambda (sym)
+           (string-trim-right (symbol-name sym) "-markup\\(-list\\)?"))
+         (geiser-eval--send/result
+          '(:eval (keywords-of-type (lambda (v)
+                                      (or (markup-function? v)
+                                          (markup-list-function? v))))))))
   (setq lilypond-ts--post-events
         (seq-remove (lambda (str)
                       (string-match-p (rx bol "#{"
                                           (* anything)
                                           "}#" eol)
                                       str))
-                    (ly-guile--init-keyword
-                     '((@ (geiser doc) all-keywords-of-type)
-                       ly:event?)))))
+                    (mapcar #'symbol-name
+                            (geiser-eval--send/result
+                             '(:eval (keywords-of-type ly:event?)))))))
 
 (defun lilypond-ts--maybe-init-keywords ()
   (when (and (null lilypond-ts--contexts)
              (null lilypond-ts--translators)
              (null lilypond-ts--grobs)
              (null lilypond-ts--markup-functions)
+             (null lilypond-ts--post-events)
              (featurep 'geiser-lilypond-guile))
-    (if (seq-contains-p (geiser-repl--repl-list)
-                        '(lilypond-guile))
-        (lilypond-ts--init-keywords)
-      (with-temp-buffer
-        (geiser-mode 1)
-        (lilypond-ts--init-keywords)))))
+    (unless (seq-contains-p (geiser-repl--repl-list)
+                            '(lilypond-guile))
+      (geiser 'lilypond-guile))
+    (unless geiser-impl--implementation
+      (geiser-impl--set-buffer-implementation 'lilypond-guile))
+    (unless (geiser-eval--send/result '(:eval :t))
+      (message "lilypond-ts-mode wasn't able to connect to Geiser Lilypond-Guile
+REPL to initialize word lists."))
+    (lilypond-ts--init-keywords)))
 
 (defun lilypond-ts--object-node-p (node)
   (seq-contains-p `(,@lilypond-ts--contexts

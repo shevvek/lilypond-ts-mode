@@ -16,6 +16,13 @@
 ;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (geiser-lilypond)
+  #:export (ly:all-context-names
+            ly:all-grob-names
+            ly:all-translator-names
+            ly:list-builtin-constants
+            ly:music-word?
+            keywords-of-type
+            ly:grob-property-completions)
   #:use-module (ice-9 and-let-star)
   #:use-module (ice-9 regex)
   #:use-module (ice-9 session)
@@ -98,7 +105,8 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
                              k))
                       (resolve-module '(lily)))))
 
-(define-public (ly:grob-property-completions grob-name subprop)
+(define*-public (ly:grob-property-completions grob-name
+                                              #:optional (subprop '()))
   (let* ((interfaces (assq-ref (assq-ref (assq-ref all-grob-descriptions
                                                    grob-name)
                                          'meta)

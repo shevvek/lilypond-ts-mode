@@ -103,3 +103,19 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
                         (and (number? (variable-ref v))
                              k))
                       (resolve-module '(lily)))))
+
+(define-public (ly:grob-property-completions grob-name subprop)
+  (let* ((interfaces (assq-ref (assq-ref (assq-ref all-grob-descriptions
+                                                   grob-name)
+                                         'meta)
+                               'interfaces))
+         (all-props (append-map (lambda (interface)
+                                  (caddr (hashq-ref (ly:all-grob-interfaces)
+                                                    interface)))
+                                interfaces)))
+    (if (null? subprop)
+        all-props
+        (filter (lambda (p)
+                  (eq? symbol-key-alist?
+                       (object-property p 'backend-type?)))
+                all-props))))

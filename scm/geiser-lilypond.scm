@@ -34,6 +34,10 @@
   #:use-module (lily)
   #:use-module (lily curried-definitions))
 
+(define-private gdoc (resolve-module '(geiser doc)))
+
+(ly:load "document-identifiers")
+
 (define (ly:primitive-args proc)
   (and-let* (((program? proc))
              (doc (object-documentation proc))
@@ -81,9 +85,10 @@
     `((type . ,return-type)
       (arguments . ,arg-spec))))
 
-(let* ((gdoc (resolve-module '(geiser doc)))
-       (old-args (module-ref gdoc 'arguments))
-       (old-sig (module-ref gdoc 'signature)))
+(let ((old-args (module-ref gdoc 'arguments))
+      (old-sig (module-ref gdoc 'signature))
+      (old-docstring (module-ref gdoc 'docstring))
+      (maybe-texinfo (module-ref gdoc 'try-texinfo->plain-text)))
   (module-set! gdoc 'arguments
                (lambda (proc)
                  (or (old-args proc)
@@ -95,7 +100,13 @@
                    (if ftype
                        `(,id ("args" ,@(assq-ref args-list 'arguments))
                              ("type" . ,ftype))
-                       (old-sig id args-list detail))))))
+                       (old-sig id args-list detail)))))
+  (module-set! gdoc 'docstring
+               (lambda (sym obj)
+                 (if (ly:music-function? obj)
+                     (maybe-texinfo
+                      (document-music-function (cons sym obj)))
+                     (old-docstring sym obj)))))
 
 (define*-public (keywords-of-type pred #:optional (prefix-str ""))
   "List all symbols bound in the current module that resolve to objects

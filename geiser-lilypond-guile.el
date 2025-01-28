@@ -15,7 +15,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
-(use-package geiser-guile)
+(require 'geiser)
+(require 'geiser-guile)
 
 (defvar ly-guile-bin "lilypond")
 (defvar ly-guile-args '("scheme-sandbox"))

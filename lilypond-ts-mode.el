@@ -416,8 +416,10 @@ REPL to initialize word lists."))
              ((and (message "%s" bounds)
                    (< start end)))
              (prefix (buffer-substring-no-properties start end))
-             (cmps (lilypond-ts--completion-list prefix)))
-    (list start end cmps
+             ;;(cmps (lilypond-ts--completion-list prefix))
+             )
+    (list start end
+          (completion-table-dynamic #'lilypond-ts--completion-list)
           :company-docsig
           (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
           :company-doc-buffer #'geiser-capf--company-doc-buffer

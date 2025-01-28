@@ -50,7 +50,7 @@
         "*parser*"
         "*location*"))
 
-(defun ly-guile-repl-startup (address)
+(defun ly-guile--repl-startup (address)
   (geiser-guile--startup (or address t))
   (geiser-eval--send/wait '(:eval (use-modules (geiser-lilypond)))))
 
@@ -90,7 +90,7 @@
 (define-geiser-implementation (lilypond-guile guile)
                               (binary ly-guile-bin)
                               (arglist ly-guile-args)
-                              (repl-startup ly-guile-repl-startup)
+                              (repl-startup ly-guile--repl-startup)
                               (find-symbol-begin ly-guile--symbol-begin)
                               (version-command ly-guile-version))
 (geiser-implementation-extension 'lilypond-guile "scm")

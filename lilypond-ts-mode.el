@@ -121,7 +121,7 @@ of Lilypond."
         (put-text-property (car range) (cadr range)
                            'syntax-table scheme-mode-syntax-table)))))
 
-(defun lang-block-parent (node &rest _)
+(defun lilypond-ts--lang-block-parent (node &rest _)
   (treesit-parent-until node
                         (lambda (n)
                           (string-match-p (rx (or "embedded_scheme_text"
@@ -163,12 +163,12 @@ of Lilypond."
      ;; Lilypond embedded within Scheme won't match this rule
      ((lambda (node &rest _)
         (string-equal "embedded_scheme_text"
-                      (treesit-node-type (lang-block-parent node))))
+                      (treesit-node-type (lilypond-ts--lang-block-parent node))))
       ;; calculate-lisp-indent already takes initial indent into account
       column-0
       (lambda (node &rest _)
         (calculate-lisp-indent (treesit-node-start
-                                (lang-block-parent node)))))
+                                (lilypond-ts--lang-block-parent node)))))
 
      ;; Base top level indentation
      ((parent-is "lilypond_program") column-0 0)

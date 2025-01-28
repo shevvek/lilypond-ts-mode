@@ -60,12 +60,42 @@
          (keyword . ,kw-args)
          (rest . ,rest))))))
 
+(define (ly:music-function-arguments mf)
+  (and-let* (((ly:music-function? mf))
+             (sig (ly:music-function-signature mf))
+             (func (ly:music-function-extract mf))
+             (arg-names (syntax-function-procedure-arguments func))
+             ((= (length arg-names)
+                 (length (cdr sig))))
+             (return-type (procedure-name (if (pair? (car sig))
+                                              (caar sig)
+                                              (car sig))))
+             (arg-spec (map (lambda (name type)
+                              (if (pair? type)
+                                  `(,(procedure-name (car type))
+                                    ,name
+                                    ,(cdr type))
+                                  `(,(procedure-name type)
+                                    ,name)))
+                            arg-names (cdr sig))))
+    `((type . ,return-type)
+      (arguments . ,arg-spec))))
+
 (let* ((gdoc (resolve-module '(geiser doc)))
-       (old-args (module-ref gdoc 'arguments)))
+       (old-args (module-ref gdoc 'arguments))
+       (old-sig (module-ref gdoc 'signature)))
   (module-set! gdoc 'arguments
                (lambda (proc)
                  (or (old-args proc)
-                     (ly:primitive-args proc)))))
+                     (ly:music-function-arguments proc)
+                     (ly:primitive-args proc))))
+  (module-set! gdoc 'signature
+               (lambda* (id args-list #:optional (detail #t))
+                 (let ((ftype (assq-ref args-list 'type)))
+                   (if ftype
+                       `(,id ("args" ,@(assq-ref args-list 'arguments))
+                             ("type" . ,ftype))
+                       (old-sig id args-list detail))))))
 
 (define*-public (keywords-of-type pred #:optional (prefix-str ""))
   "List all symbols bound in the current module that resolve to objects

@@ -62,6 +62,31 @@
           (save-excursion (beginning-of-line) (point)))
     (geiser-guile--symbol-begin module)))
 
+(defun ly-guile-autodoc--format-arg (arg)
+  (concat
+   (when (cddr arg) "[")
+   (propertize (geiser-syntax--display (car arg)) 'face 'italic)
+   " "
+   (propertize (geiser-syntax--display (cadr arg))
+               'face 'geiser-font-lock-autodoc-current-arg)
+   (when (cddr arg)
+     (format " = %s]" (geiser-syntax--display (caddr arg))))))
+
+(defun ly-guile-autodoc--str (desc signature)
+  (let ((type-p (assoc "type" signature)))
+    (when type-p
+      (let ((proc (car desc))
+            (args (geiser-autodoc--sanitize-args
+                   (cdr (assoc "args" signature))))
+            (type (cdr type-p)))
+        (format "%s: %s => %s"
+                (geiser-autodoc--id-name proc nil)
+                (mapconcat #'ly-guile-autodoc--format-arg args " ")
+                (propertize (geiser-syntax--display type)
+                            'face 'italic))))))
+
+(advice-add 'geiser-autodoc--str :before-until #'ly-guile-autodoc--str)
+
 (define-geiser-implementation (lilypond-guile guile)
                               (binary ly-guile-bin)
                               (arglist ly-guile-args)

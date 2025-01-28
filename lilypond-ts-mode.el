@@ -413,6 +413,10 @@ REPL to initialize word lists."))
         (:match ,(rx bol "\\" "=" eol) @font-lock-keyword-face))
        :anchor
        (unsigned_integer) @font-lock-number-face)))
+
+    :feature phrasing
+    :override prepend
+    ((punctuation ["\\(" "\\)"]) @font-lock-variable-name-face @bold)
     ))
 
 ;;; Completion
@@ -573,7 +577,7 @@ REPL to initialize word lists."))
         (setq-local treesit-font-lock-feature-list
                     '((comment string escaped-word)
                       (keyword scheme expression object markup)
-                      (number)))
+                      (number phrasing)))
         (setq-local treesit-font-lock-level 3)))
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
     ;; (setq-local treesit--indent-verbose t)

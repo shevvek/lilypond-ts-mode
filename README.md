@@ -10,8 +10,7 @@ Currently this package is in alpha.
 * Parser based indentation for Lilypond code, with `scheme-mode` indentation of embedded Scheme. Arbitrarily nested embeddings are supported.
 * Smart type-based auto-completion for property expressions (e.g. `Staff.TextScript.whiteout`).
 * Auto-completion for `\`-escaped words (e.g. `\relative`).
-* Auto-documentation for music functions and Scheme primitive functions exported from the Lilypond binary.
-* Minibuffer documentation via Geiser for bindings referenced within Lilypond syntax.
+* Auto-documentation in both Lilypond and Scheme code for music functions, markup/markuplist functions, and Scheme primitive functions exported from the Lilypond binary.
 * Basic imenu support.
 
 ## Prerequisites
@@ -32,7 +31,6 @@ Currently this package is in alpha.
    ```
 
 ## Planned features
-* Minibuffer documentation support for markup functions.
 * Load user and project Lilypond and Scheme libraries when initializing the Lilypond Scheme REPL.
 * Support for custom program options for the Lilypond REPL.
 * Interactive evaluation of Lilypond code.

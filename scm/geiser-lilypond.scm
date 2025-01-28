@@ -34,6 +34,7 @@
   #:use-module (lily)
   #:use-module (lily curried-definitions))
 
+(define-private gutils (resolve-module '(geiser utils)))
 (define-private gdoc (resolve-module '(geiser doc)))
 
 (ly:load "document-identifiers")
@@ -64,16 +65,9 @@
          (keyword . ,kw-args)
          (rest . ,rest))))))
 
-(define (ly:music-function-arguments mf)
-  (and-let* (((ly:music-function? mf))
-             (sig (ly:music-function-signature mf))
-             (func (ly:music-function-extract mf))
-             (arg-names (syntax-function-procedure-arguments func))
-             ((= (length arg-names)
-                 (length (cdr sig))))
-             (return-type (procedure-name (if (pair? (car sig))
-                                              (caar sig)
-                                              (car sig))))
+(define (ly:zip-function-arguments arg-names arg-types return-type)
+  (and-let* (((= (length arg-names)
+                 (length arg-types)))
              (arg-spec (map (lambda (name type)
                               (if (pair? type)
                                   `(,(procedure-name (car type))
@@ -81,9 +75,28 @@
                                     ,(cdr type))
                                   `(,(procedure-name type)
                                     ,name)))
-                            arg-names (cdr sig))))
+                            arg-names arg-types)))
     `((type . ,return-type)
       (arguments . ,arg-spec))))
+
+(define (ly:music-function-arguments mf)
+  (and-let* (((ly:music-function? mf))
+             (sig (ly:music-function-signature mf))
+             (func (ly:music-function-extract mf))
+             (arg-names (syntax-function-procedure-arguments func))
+             (return-type (procedure-name (if (pair? (car sig))
+                                              (caar sig)
+                                              (car sig)))))
+    (ly:zip-function-arguments arg-names (cdr sig) return-type)))
+
+(define (ly:markup-function-arguments mf)
+  (and-let* ((return-type (cond ((markup-function? mf) 'markup?)
+                                ((markup-list-function? mf) 'markup-list?)
+                                (else #f)))
+             (arg-names (drop (assq-ref (program-arguments-alist mf) 'required)
+                              2))
+             (arg-types (markup-command-signature mf)))
+    (ly:zip-function-arguments arg-names arg-types return-type)))
 
 (let ((old-args (module-ref gdoc 'arguments))
       (old-sig (module-ref gdoc 'signature))
@@ -91,8 +104,9 @@
       (maybe-texinfo (module-ref gdoc 'try-texinfo->plain-text)))
   (module-set! gdoc 'arguments
                (lambda (proc)
-                 (or (old-args proc)
-                     (ly:music-function-arguments proc)
+                 (or (ly:music-function-arguments proc)
+                     (ly:markup-function-arguments proc)
+                     (old-args proc)
                      (ly:primitive-args proc))))
   (module-set! gdoc 'signature
                (lambda* (id args-list #:optional (detail #t))
@@ -107,6 +121,13 @@
                      (maybe-texinfo
                       (document-music-function (cons sym obj)))
                      (old-docstring sym obj)))))
+
+(let ((old-sym->obj (module-ref gutils 'symbol->object)))
+  (module-set! gutils 'symbol->object
+               (lambda (sym)
+                 (or (old-sym->obj sym)
+                     (old-sym->obj (symbol-append sym '-markup))
+                     (old-sym->obj (symbol-append sym '-markup-list))))))
 
 (define*-public (keywords-of-type pred #:optional (prefix-str ""))
   "List all symbols bound in the current module that resolve to objects

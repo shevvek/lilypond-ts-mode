@@ -352,7 +352,8 @@ REPL to initialize word lists."))
        (decimal_number)] @font-lock-number-face)
      ((unsigned_integer) @bold
       :anchor
-      (punctuation ".") @bold :*))
+      (punctuation ".") @bold :*)
+     ((instrument_string_number) @font-lock-number-face))
 
     :feature number
     :override t

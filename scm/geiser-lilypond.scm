@@ -21,7 +21,9 @@
             ly:all-translator-names
             ly:list-builtin-constants
             ly:music-word?
-            keywords-of-type)
+            keywords-of-type
+            ly:grob-property-completions
+            ly:accepts-maybe-property-path?)
   #:use-module (ice-9 and-let-star)
   #:use-module (ice-9 regex)
   #:use-module (ice-9 session)

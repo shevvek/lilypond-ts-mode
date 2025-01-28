@@ -243,7 +243,7 @@ of Lilypond."
 (defvar lilypond-ts--post-events
   nil)
 
-(defvar lilypond-ts--custom-events
+(defvar lilypond-ts--event-functions
   nil)
 
 (defun lilypond-ts--fontify-scheme (node override start end &rest _)
@@ -279,7 +279,11 @@ of Lilypond."
                                       str))
                     (mapcar #'symbol-name
                             (geiser-eval--send/result
-                             '(:eval (keywords-of-type ly:event?)))))))
+                             '(:eval (keywords-of-type ly:event?))))))
+  (setq lilypond-ts--event-functions
+        (mapcar #'symbol-name
+                (geiser-eval--send/result
+                 '(:eval (keywords-of-type ly:event-function?))))))
 
 (defun lilypond-ts--maybe-init-keywords ()
   (when (and (null lilypond-ts--contexts)
@@ -368,25 +372,13 @@ REPL to initialize word lists."))
                           eol))
               @font-lock-function-call-face)))
 
-    :feature keyword
-    :override t
-    (((escaped_word) @font-lock-keyword-face
-      (:match ,(eval `(rx bol "\\" (or "include" "maininput" "version"
-                                       ,@lilypond-ts--lexer-keywords
-                                       ,@lilypond-ts--other-keywords)
-                          eol))
-              @font-lock-keyword-face))
-     (((escaped_word) @font-lock-keyword-face
-       (:match "\\\\override" @font-lock-keyword-face))
-      :anchor (property_expression)))
-
     :feature expression
     :override t
     (((dynamic) @font-lock-builtin-face)
      (((escaped_word) @font-lock-builtin-face
        (:match  ,(eval `(rx bol (? "\\") ;; optional in order to match \^ and \-
                             (or ,@lilypond-ts--post-events
-                                ,@lilypond-ts--custom-events)
+                                ,@lilypond-ts--event-functions)
                             eol))
                 @font-lock-builtin-face)))
      ((punctuation ["-" "_" "^"]) @font-lock-builtin-face
@@ -405,6 +397,22 @@ REPL to initialize word lists."))
      ;; ((escaped_word) @bold
      ;;  (:match  "\\\\[[:punct:]rsmfpz]+" @bold))
      )
+
+    :feature keyword
+    :override t
+    (((escaped_word) @font-lock-keyword-face
+      (:match ,(eval `(rx bol "\\" (or "include" "maininput" "version"
+                                       ,@lilypond-ts--lexer-keywords
+                                       ,@lilypond-ts--other-keywords)
+                          eol))
+              @font-lock-keyword-face))
+     (((escaped_word) @font-lock-keyword-face
+       (:match "\\\\override" @font-lock-keyword-face))
+      :anchor (property_expression))
+     ((((escaped_word) @font-lock-keyword-face
+        (:match ,(rx bol "\\" "=" eol) @font-lock-keyword-face))
+       :anchor
+       (unsigned_integer) @font-lock-number-face)))
     ))
 
 ;;; Completion

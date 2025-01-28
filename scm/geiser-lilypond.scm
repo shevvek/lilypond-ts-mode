@@ -90,6 +90,12 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
       (and (markup-list? obj)
            (pair? obj))))
 
+(define-public (ly:event-function? obj)
+  (and-let* (((ly:music-function? obj))
+             (sig (ly:music-function-signature obj))
+             ((pair? (car sig)))
+             ((eq? ly:event? (caar sig))))))
+
 (define-public (ly:all-context-names)
   (cons* 'Bottom 'Timing
          (map car (ly:output-description (ly:parser-lookup '$defaultlayout)))))

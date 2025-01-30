@@ -361,7 +361,8 @@ REPL to initialize word lists."))
               @font-lock-keyword-face))
      (((escaped_word) @font-lock-keyword-face
        (:match "\\\\override" @font-lock-keyword-face))
-      :anchor (property_expression))
+      :anchor [(property_expression)
+               (assignment_lhs)])
      ((((escaped_word) @font-lock-keyword-face
         (:match ,(rx bol "\\" "=" eol) @font-lock-keyword-face))
        :anchor

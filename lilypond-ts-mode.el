@@ -325,6 +325,11 @@ REPL to initialize word lists."))
                           eol))
               @font-lock-function-call-face)))
 
+    :feature markup
+    :override prepend
+    (((escaped_word) @bold
+      (:match "^\\\\markup\\(list\\)?$" @bold)))
+
     :feature expression
     :override t
     (((dynamic) @font-lock-builtin-face)

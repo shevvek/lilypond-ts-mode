@@ -22,7 +22,7 @@ Currently this package is in alpha.
 
 ## Installation
 1. Ensure prerequisites are installed.
-2. Clone this repository with `--recurse-submodules`.
+2. Clone this repository.
 3. Add to your `init.el`:
    ```
    (add-to-list 'load-path <local repo location>)
@@ -57,22 +57,7 @@ As with all Treesitter modes, font lock features can be toggled selectively.
 
 The current font lock rules were developed using `gruvbox`. Feedback is welcome on how highlighting looks under other themes.
 
-### Deprecated: auto-generated font lock
-Early versions of `lilypond-ts-mode` used a script to automatically convert native Treesitter queries into Emacs font lock rules. To use these instead:
-1. Clone the Lilypond Treesitter grammar with `--recurse-submodules`.
-2. Run `lilypond-ts-install-auto-queries`
-3. Add to your init file:
-```
-(setq lilypond-ts-use-auto-queries t)
-(add-to-list 'load-path
-                 (file-name-concat lilypond-ts-location ts-auto-query-dir))
-(require 'auto-ly-font-lock-rules)
-```
-When prompted, select the Lilypond Treesitter grammar repo directory.
-
-The automatically generated font-lock rules are deprecated and should only be used if you want to use `lilypond-ts-mode` without Geiser. Probably they will be removed in the future.
-
 ## License
-`lilypond-ts-mode` is licensed under GPL-3+. The `ts-auto-parse-queries` submodule is licensed under MIT.
+`lilypond-ts-mode` is licensed under GPL-3+.
 
 I don't believe there is any substantial code from `geiser` or `geiser-guile`, but any code from these packages retains their respective licenses; both `geiser` and `geiser-guile` are licensed under BSD 3-clause.

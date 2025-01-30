@@ -25,61 +25,13 @@
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
 
-(add-to-list 'load-path
-             (file-name-concat lilypond-ts-location "ts-auto-parse-queries"))
-(require 'ts-auto-parse-queries)
-
-(defvar lilypond-ts-use-auto-queries nil)
-
-(defun lilypond-ts-install-auto-queries (&optional ts-ly-dir)
-  (interactive)
-  (let ((default-directory lilypond-ts-location)
-        (grammar-loc (or ts-ly-dir
-                         (read-directory-name
-                          "Local location of tree-sitter-lilypond repo: "))))
-    (unless ts-auto-query-lang
-      (setq ts-auto-query-lang "lilypond"))
-    (unless ts-auto-query-files
-      (setq ts-auto-query-files
-            '(("queries/highlights.scm" . "highlights")
-              ("queries/highlights-builtins.scm" . "highlights-builtins")
-              ("tree-sitter-lilypond-scheme/queries/highlights.scm"
-               . "scheme-highlights")
-              ("tree-sitter-lilypond-scheme/queries/highlights-builtins.scm"
-               . "scheme-highlights-builtins")
-              ("tree-sitter-lilypond-scheme/queries/highlights-lilypond-builtins.scm"
-               . "scheme-highlights-lilypond-builtins"))))
-    (ts-auto-parse-queries grammar-loc)))
-
-(defun lilypond-ts--legacy-install ()
+(defun lilypond-ts--install ()
   (add-to-list 'treesit-language-source-alist
                `(lilypond . (,lilypond-ts-grammar-url)))
   (treesit-install-language-grammar 'lilypond))
 
-(defun lilypond-ts--future-install ()
-  (let ((src-dir (file-name-concat lilypond-ts-location "grammar-src")))
-    ;; As of 30.0.92, treesit--git-clone-repo does not handle git submodules
-    (treesit--git-clone-repo lilypond-ts-grammar-url
-                             nil src-dir)
-    (treesit--install-language-grammar-1 nil 'lilypond src-dir)
-    (lilypond-ts-install-auto-queries (expand-file-name src-dir))))
-
-(defun lilypond-ts-install ()
-  (if (fboundp 'treesit--git-clone-repo)
-      (lilypond-ts--future-install)
-    (lilypond-ts--legacy-install)))
-
 (unless (treesit-language-available-p 'lilypond)
-  (lilypond-ts--legacy-install))
-
-(when lilypond-ts-use-auto-queries
-  (let ((auto-query-loc (file-name-concat lilypond-ts-location
-                                          ts-auto-query-dir)))
-    (unless (file-directory-p auto-query-loc)
-      (lilypond-ts-install-auto-queries))
-    (add-to-list 'load-path
-                 (file-name-concat lilypond-ts-location ts-auto-query-dir))
-    (require 'auto-ly-font-lock-rules)))
+  (lilypond-ts--install))
 
 ;;; Options
 
@@ -563,23 +515,15 @@ REPL to initialize word lists."))
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
-    (if lilypond-ts-use-auto-queries
-        (progn
-          (setq-local treesit-font-lock-feature-list auto-ly-font-lock-features)
-          (setq-local treesit-font-lock-level 1)
-          (setq-local treesit-font-lock-settings
-                      (apply #'treesit-font-lock-rules
-                             auto-ly-font-lock-rules)))
-      (progn
-        (lilypond-ts--maybe-init-keywords)
-        (setq-local treesit-font-lock-settings
-                    (apply #'treesit-font-lock-rules
-                           (lilypond-ts--font-lock-rules)))
-        (setq-local treesit-font-lock-feature-list
-                    '((comment string escaped-word)
-                      (keyword scheme expression object markup)
-                      (number phrasing)))
-        (setq-local treesit-font-lock-level 3)))
+    (lilypond-ts--maybe-init-keywords)
+    (setq-local treesit-font-lock-settings
+                (apply #'treesit-font-lock-rules
+                       (lilypond-ts--font-lock-rules)))
+    (setq-local treesit-font-lock-feature-list
+                '((comment string escaped-word)
+                  (keyword scheme expression object markup)
+                  (number phrasing)))
+    (setq-local treesit-font-lock-level 3)
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
     ;; (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)

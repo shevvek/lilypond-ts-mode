@@ -163,12 +163,6 @@ satisfying pred. Optionally list only symbols starting with prefix-str."
   (cons* 'Bottom 'Timing
          (map car (ly:output-description (ly:parser-lookup '$defaultlayout)))))
 
-(define-public (ly:all-translator-names)
-  (map ly:translator-name (ly:get-all-translators)))
-
-(define-public (ly:all-grob-names)
-  (map car all-grob-descriptions))
-
 (define-public (ly:list-builtin-constants)
   (filter identity
           (module-map (lambda (k v)

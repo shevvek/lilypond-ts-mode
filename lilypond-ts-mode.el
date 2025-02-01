@@ -149,7 +149,24 @@ of Lilypond."
         (= 4 (treesit-node-child-count node)))
      treesit-node-text)))
 
-;;; Font lock
+;;; Keyword lists
+
+(defun lilypond-ts--get-and-maybe-refresh (plist &optional force-refresh)
+  (when-let* (((or force-refresh
+                   (plist-get plist :needs-update)))
+              ((featurep 'geiser-lilypond-guile))
+              ((ly-guile--ensure-repl))
+              (scm-code (plist-get plist :scm))
+              (new-data (geiser-eval--send/result `(:eval ,scm-code)))
+              (wrap-element (or (plist-get plist :wrap-element)
+                                #'identity)))
+    (plist-put plist :needs-update nil)
+    (plist-put plist :value (delq nil (mapcar wrap-element new-data))))
+  (plist-get plist :value))
+
+(defmacro lilypond-ts-list (suffix)
+  (let ((plist-name (intern (concat "lilypond-ts--" (symbol-name suffix)))))
+    `(lilypond-ts--get-and-maybe-refresh ,plist-name)))
 
 (defvar lilypond-ts--lexer-keywords
   '(;; extracted from lily-lexer.cc
@@ -181,22 +198,76 @@ of Lilypond."
         "tweak" "undo" "unfoldRepeats" "unfolded" "void" "volta"))
 
 (defvar lilypond-ts--contexts
-  nil)
+  '( :value nil
+     :needs-update t
+     :scm (ly:all-context-names)
+     :wrap-element symbol-name))
 
 (defvar lilypond-ts--grobs
-  nil)
+  '( :value nil
+     :needs-update t
+     :scm (map car all-grob-descriptions)
+     :wrap-element symbol-name))
 
 (defvar lilypond-ts--translators
-  nil)
+  '( :value nil
+     :needs-update t
+     :scm (map ly:translator-name (ly:get-all-translators))
+     :wrap-element symbol-name))
 
 (defvar lilypond-ts--markup-functions
-  nil)
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type (lambda (v)
+                              (or (markup-function? v)
+                                  (markup-list-function? v))))
+     :wrap-element (lambda (sym)
+                     (string-trim-right (symbol-name sym)
+                                        "-markup\\(-list\\)?"))))
 
 (defvar lilypond-ts--post-events
-  nil)
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:event?)
+     :wrap-element symbol-name))
 
 (defvar lilypond-ts--event-functions
-  nil)
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:event-function?)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--translation-properties
+  '( :value nil
+     :needs-update t
+     :scm all-translation-properties
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--music-types
+  '( :value nil
+     :needs-update t
+     :scm (map car music-descriptions)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--music-properties
+  '( :value nil
+     :needs-update t
+     :scm all-music-properties
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--pitch-languages
+  '( :value nil
+     :needs-update t
+     :scm (map car language-pitch-names)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--clefs
+  '( :value nil
+     :needs-update t
+     :scm (map car (filter pair? supported-clefs))
+     :wrap-element symbol-name))
+
+;;; Font lock
 
 (defun lilypond-ts--fontify-scheme (node override start end &rest _)
   (when (featurep 'geiser-lilypond-guile)
@@ -204,61 +275,6 @@ of Lilypond."
                                                      (treesit-node-end node))))
       (dolist (range-interval scheme-ranges)
         (apply #'geiser-syntax--fontify-syntax-region range-interval)))))
-
-(defun lilypond-ts--init-keywords ()
-  (setq lilypond-ts--contexts
-        (mapcar #'symbol-name
-                (geiser-eval--send/result '(:eval (ly:all-context-names)))))
-  (setq lilypond-ts--translators
-        (mapcar #'symbol-name
-                (geiser-eval--send/result '(:eval (ly:all-translator-names)))))
-  (setq lilypond-ts--grobs
-        (mapcar #'symbol-name
-                (geiser-eval--send/result '(:eval (ly:all-grob-names)))))
-  (setq lilypond-ts--markup-functions
-        (mapcar
-         (lambda (sym)
-           (string-trim-right (symbol-name sym) "-markup\\(-list\\)?"))
-         (geiser-eval--send/result
-          '(:eval (keywords-of-type (lambda (v)
-                                      (or (markup-function? v)
-                                          (markup-list-function? v))))))))
-  (setq lilypond-ts--post-events
-        (seq-remove (lambda (str)
-                      (string-match-p (rx bol "#{"
-                                          (* anything)
-                                          "}#" eol)
-                                      str))
-                    (mapcar #'symbol-name
-                            (geiser-eval--send/result
-                             '(:eval (keywords-of-type ly:event?))))))
-  (setq lilypond-ts--event-functions
-        (mapcar #'symbol-name
-                (geiser-eval--send/result
-                 '(:eval (keywords-of-type ly:event-function?))))))
-
-(defun lilypond-ts--maybe-init-keywords ()
-  (when (and (null lilypond-ts--contexts)
-             (null lilypond-ts--translators)
-             (null lilypond-ts--grobs)
-             (null lilypond-ts--markup-functions)
-             (null lilypond-ts--post-events)
-             (featurep 'geiser-lilypond-guile))
-    (unless (seq-contains-p (geiser-repl--repl-list)
-                            '(lilypond-guile))
-      (geiser 'lilypond-guile))
-    (unless geiser-impl--implementation
-      (geiser-impl--set-buffer-implementation 'lilypond-guile))
-    (unless (geiser-eval--send/result '(:eval :t))
-      (message "lilypond-ts-mode wasn't able to connect to Geiser Lilypond-Guile
-REPL to initialize word lists."))
-    (lilypond-ts--init-keywords)))
-
-(defun lilypond-ts--object-node-p (node)
-  (seq-contains-p `(,@lilypond-ts--contexts
-                    ,@lilypond-ts--grobs
-                    ,@lilypond-ts--translators)
-                  (treesit-node-text node)))
 
 (defun lilypond-ts--font-lock-rules ()
   `(
@@ -279,23 +295,23 @@ REPL to initialize word lists."))
 
     :feature object
     (((symbol) @font-lock-type-face
-      (:match ,(eval `(rx bol (or ,@lilypond-ts--contexts
-                                  ,@lilypond-ts--grobs)
+      (:match ,(eval `(rx bol (or ,@(lilypond-ts-list contexts)
+                                  ,@(lilypond-ts-list grobs))
                           eol))
               @font-lock-type-face))
      ((escaped_word) @font-lock-type-face
-      (:match ,(eval `(rx bol "\\" (or ,@lilypond-ts--contexts)
+      (:match ,(eval `(rx bol "\\" (or ,@(lilypond-ts-list contexts))
                           eol))
               @font-lock-type-face)))
 
     :feature object
     :override prepend
     (((symbol) @bold
-      (:match ,(eval `(rx bol (or ,@lilypond-ts--contexts)
+      (:match ,(eval `(rx bol (or ,@(lilypond-ts-list contexts))
                           eol))
               @bold))
      ((escaped_word) @bold
-      (:match ,(eval `(rx bol "\\" (or ,@lilypond-ts--contexts)
+      (:match ,(eval `(rx bol "\\" (or ,@(lilypond-ts-list contexts))
                           eol))
               @bold)))
 
@@ -321,7 +337,7 @@ REPL to initialize word lists."))
     :override t
     (((escaped_word) @font-lock-function-call-face
       (:match ,(eval `(rx bol "\\" (or "markup" "markuplist"
-                                       ,@lilypond-ts--markup-functions)
+                                       ,@(lilypond-ts-list markup-functions))
                           eol))
               @font-lock-function-call-face)))
 
@@ -335,8 +351,8 @@ REPL to initialize word lists."))
     (((dynamic) @font-lock-builtin-face)
      (((escaped_word) @font-lock-builtin-face
        (:match  ,(eval `(rx bol (? "\\") ;; optional in order to match \^ and \-
-                            (or ,@lilypond-ts--post-events
-                                ,@lilypond-ts--event-functions)
+                            (or ,@(lilypond-ts-list post-events)
+                                ,@(lilypond-ts-list event-functions))
                             eol))
                 @font-lock-builtin-face)))
      ((punctuation ["-" "_" "^"]) @font-lock-builtin-face
@@ -381,7 +397,7 @@ REPL to initialize word lists."))
 ;;; Completion
 
 (defsubst lilypond-ts--context-p (str)
-  (seq-contains-p lilypond-ts--contexts str))
+  (seq-contains-p (lilypond-ts-list contexts) str))
 
 (defsubst lilypond-ts--grob-p (str)
   (eq :t (geiser-eval--send/result
@@ -427,7 +443,7 @@ REPL to initialize word lists."))
          (left-text (treesit-node-text left-sib t))
          (right-text (treesit-node-text right-sib t))
          (left-ctx-p (when left-sib
-                       (seq-contains-p lilypond-ts--contexts left-text)))
+                       (lilypond-ts--context-p left-text)))
          (left-grob-p (when (and left-sib
                                  (not left-ctx-p))
                         (lilypond-ts--grob-p left-text)))
@@ -455,19 +471,19 @@ REPL to initialize word lists."))
       (append
        (when (and (not left-sib)
                   (or (not right-sib) right-grob-p right-ctx-prop-p))
-         lilypond-ts--contexts)
+         (lilypond-ts-list contexts))
        (when (and (not (seq-contains-p lilypond-ts--context-property-functions
                                        func-text))
                   (or (not left-sib) left-ctx-p)
                   (or (not right-sib) right-grob-prop-p))
-         lilypond-ts--grobs)
+         (lilypond-ts-list grobs))
        (when left-grob-p
          (geiser-eval--send/result
           `(:eval (ly:grob-property-completions ,left-text ,right-text))))
        (when (and (not (seq-contains-p lilypond-ts--grob-property-functions
                                        func-text))
                   (or (not left-sib) left-ctx-p))
-         (geiser-eval--send/result '(:eval all-translation-properties)))))))
+         (lilypond-ts-list translation-properties))))))
 
 (defun lilypond-ts--property-capf (&optional predicate)
   (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
@@ -495,8 +511,8 @@ REPL to initialize word lists."))
        "markup" "markuplist" ;; since these are omitted from lexer-keywords list
        "breve" "longa" "maxima")
      lilypond-ts--lexer-keywords
-     lilypond-ts--contexts
-     lilypond-ts--markup-functions
+     (lilypond-ts-list contexts)
+     (lilypond-ts-list markup-functions)
      (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
                                                          ,pfx))))))
 
@@ -521,7 +537,6 @@ REPL to initialize word lists."))
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
-    (lilypond-ts--maybe-init-keywords)
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        (lilypond-ts--font-lock-rules)))

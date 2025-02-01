@@ -50,6 +50,14 @@
         "*parser*"
         "*location*"))
 
+(defun ly-guile--ensure-repl ()
+  (unless geiser-impl--implementation
+    (geiser-impl--set-buffer-implementation 'lilypond-guile))
+  (unless (and (geiser-repl--ensure-repl-buffer)
+               (geiser-repl--live-p))
+    (geiser-repl--start-repl 'lilypond-guile nil))
+  (geiser-repl--live-p))
+
 (defun ly-guile--repl-startup (address)
   (geiser-guile--startup (or address t))
   (geiser-eval--send/wait '(:eval (use-modules (geiser-lilypond)))))

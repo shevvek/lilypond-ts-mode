@@ -237,6 +237,12 @@ of Lilypond."
      :scm (keywords-of-type ly:event-function?)
      :wrap-element symbol-name))
 
+(defvar lilypond-ts--grob-properties
+  '( :value nil
+     :needs-update t
+     :scm all-backend-properties
+     :wrap-element symbol-name))
+
 (defvar lilypond-ts--translation-properties
   '( :value nil
      :needs-update t
@@ -400,12 +406,13 @@ of Lilypond."
   (seq-contains-p (lilypond-ts-list contexts) str))
 
 (defsubst lilypond-ts--grob-p (str)
-  (eq :t (geiser-eval--send/result
-          `(:eval (object-property (string->symbol ,str) 'is-grob?)))))
+  (seq-contains-p (lilypond-ts-list grobs) str))
 
 (defsubst lilypond-ts--grob-property-p (str)
-  (eq :t (geiser-eval--send/result
-          `(:eval (object-property (string->symbol ,str) 'backend-type?)))))
+  (seq-contains-p (lilypond-ts-list grob-properties) str))
+
+(defsubst lilypond-ts--translation-property-p (str)
+  (seq-contains-p (lilypond-ts-list translation-properties) str))
 
 ;; Candidates to add to this list can be queried by running:
 ;; (keywords-of-type ly:accepts-maybe-property-path?) in the Geiser REPL
@@ -452,13 +459,10 @@ of Lilypond."
          (right-grob-prop-p (when (and right-sib
                                        (not right-grob-p))
                               (lilypond-ts--grob-property-p right-text)))
-         (right-ctx-prop-p
-          (when (and right-sib
-                     (not right-grob-p)
-                     (not right-grob-prop-p))
-            (eq :t (geiser-eval--send/result
-                    `(:eval (object-property (string->symbol ,right-text)
-                                             'translation-type?)))))))
+         (right-ctx-prop-p (when (and right-sib
+                                      (not right-grob-p)
+                                      (not right-grob-prop-p))
+                             (lilypond-ts--translation-property-p right-text))))
     (when lilypond-ts--debug-msgs
       (message "Debug lilypond-ts--property-completions: %s %s %s"
                func-text left-text right-text))

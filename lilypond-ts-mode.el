@@ -271,7 +271,7 @@ of Lilypond."
   '( :value nil
      :needs-update t
      :scm (map car (filter pair? supported-clefs))
-     :wrap-element symbol-name))
+     :wrap-element identity))
 
 ;;; Font lock
 
@@ -401,6 +401,42 @@ of Lilypond."
     ))
 
 ;;; Completion
+
+(defvar lilypond-ts--repeat-types
+  '(unfold tremolo volta segno percent))
+
+(defun lilypond-ts--symbol-completions (&optional node)
+  (let* ((this-node (or node
+                        (treesit-node-at (point))))
+         (dad (treesit-node-prev-sibling this-node))
+         (cmd (and (treesit-node-match-p dad "escaped_word")
+                   (treesit-node-text dad t))))
+    (cond
+     ((string-equal cmd "\\clef")
+      (lilypond-ts-list clefs))
+     ((string-equal cmd "\\repeat")
+      lilypond-ts--repeat-types)
+     ((string-equal cmd "\\language")
+      (lilypond-ts-list pitch-languages))
+     ((or (string-equal cmd "\\consists")
+          (string-equal cmd "\\remove"))
+      (lilypond-ts-list translators)))))
+
+(defun lilypond-ts--symbol-capf (&optional predicate)
+  (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
+             (this-node (treesit-node-at (point)))
+             ((treesit-node-match-p this-node "symbol"))
+             (start (treesit-node-start this-node))
+             (end (treesit-node-end this-node))
+             ((< start end))
+             (cmps (lilypond-ts--symbol-completions this-node)))
+    (list start end
+          (completion-table-dynamic (lambda (pfx)
+                                      cmps))
+          :company-docsig
+          (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
+          :company-doc-buffer #'geiser-capf--company-doc-buffer
+          :company-location #'geiser-capf--company-location)))
 
 (defsubst lilypond-ts--context-p (str)
   (seq-contains-p (lilypond-ts-list contexts) str))
@@ -558,6 +594,8 @@ of Lilypond."
       (geiser-mode 1)
       (add-hook 'completion-at-point-functions
                 #'lilypond-ts--property-capf nil t)
+      (add-hook 'completion-at-point-functions
+                #'lilypond-ts--symbol-capf nil t)
       (add-hook 'completion-at-point-functions
                 #'lilypond-ts--escaped-word-capf nil t))
     (setq-local lisp-indent-function #'scheme-indent-function)

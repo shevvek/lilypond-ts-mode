@@ -95,6 +95,19 @@
 
 (advice-add 'geiser-autodoc--str :before-until #'ly-guile-autodoc--str)
 
+;; This is to redirect Lilypond messages, which would be otherwise
+;; sent to the Geiser Messages buffer as warnings by geiser-con--req-form
+;; It's not ideal to do it this way since it affects non-Lilypond geiser
+;; REPLs, but it's not obvious how to advise geiser-con--req-form without
+;; significant code duplication. It would be nice to just handle stderr
+;; separately, but comint mode doesn't provide an easy way to do this.
+;; Alternatively, this could maybe be done via comint process filters.
+(defun ly-guile--redirect-messages (type &rest args)
+  (when (string-equal (car args) "Extra output (before): %s")
+    (message "%s" (cadr args))))
+
+(advice-add 'geiser-log--msg :before-until #'ly-guile--redirect-messages)
+
 (define-geiser-implementation (lilypond-guile guile)
                               (binary ly-guile-bin)
                               (arglist ly-guile-args)

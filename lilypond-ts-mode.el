@@ -572,6 +572,30 @@ of Lilypond."
           :company-location #'geiser-capf--company-location
           :exclusive t)))
 
+;;; Eval
+
+(defun lilypond-ts-eval-region (start end)
+  "Async eval the region within the current Geiser Lilypond REPL."
+  (interactive "r")
+  (let* ((start-node (treesit-node-at start))
+         (end-node (treesit-node-at end))
+         (start-lang-block (lilypond-ts--lang-block-parent start-node))
+         (end-lang-block (lilypond-ts--lang-block-parent end-node))
+         (one-lang-parent-p (treesit-node-eq start-lang-block end-lang-block))
+         (start (treesit-node-start start-node))
+         (end (treesit-node-end end-node)))
+    (cond
+     ((not one-lang-parent-p)
+      (message "lilypond-ts-eval-region error: start and end node do not belong to the same language block."))
+     ((treesit-node-match-p start-lang-block "embedded_scheme_text")
+      (geiser-eval-region start end))
+     (t (geiser-eval--send
+         `(:eval (ly:parser-parse-string
+                  (ly:parser-clone)
+                  ,(buffer-substring-no-properties start end)))
+         (lambda (s)
+           (message "%s" (geiser-eval--retort-result-str s nil))))))))
+
 ;;; Mode-init
 
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"

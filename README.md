@@ -5,6 +5,7 @@ Currently this package is in alpha.
 
 ## Currently supported features
 * Live access to LilyPond's full Scheme API from Emacs, by running LilyPond itself as the Scheme REPL via Geiser. This is usable both for `lilypond-ts-mode` files and for `scheme-mode` files.
+* Interactively evaluate LilyPond code within the active REPL via `lilypond-ts-eval-region`. (Note: this is currently implemented in a way that does minimal checking for valid expression boundaries or error conditions.)
 * Keyword lists for font lock and auto-completion populated at runtime by LilyPond itself, not hard-coded.
 * Parser based font-lock for LilyPond code, with `scheme-mode` highlighting of embedded Scheme via Geiser.
 * Parser based indentation for LilyPond code, with `scheme-mode` indentation of embedded Scheme. Arbitrarily nested embeddings are supported.
@@ -35,7 +36,6 @@ Currently this package is in alpha.
 
 ## Planned features
 * Load user and project LilyPond and Scheme libraries when initializing the LilyPond Scheme REPL.
-* Interactive evaluation of LilyPond code.
 * Parser-based structured navigation.
 * Auto-completion support for symbols within Scheme code (e.g. grob interfaces, event classes).
 * Specific syntax completion and highlighting (e.g. `\clef`, `\repeat`, `\consists`, chordmode).
@@ -53,7 +53,7 @@ All of these should eventually be supported, but I am currently **not** prioriti
 * Dropdown menu
 
 ## Customization
-To pass program options to the LilyPond REPL, prepend them to `ly-guile-args`.
+To pass program options to the LilyPond REPL, prepend them to `ly-guile-args`. Note that spaces included in option strings will be passed literally. To add an include directory, for example, add to `ly-guile-args` either: `"-Id:/lilypond-includes/"` or `"-I" "d:/lilypond-includes/"` but not `"-I d:/lilypond-includes/"`.
 
 To adjust which words other than lexer keywords receive *keyword* highlighting, modify `lilypond-ts--other-keywords`.
 

@@ -406,11 +406,11 @@ of Lilypond."
   '(unfold tremolo volta segno percent))
 
 (defun lilypond-ts--symbol-completions (&optional node)
-  (let* ((this-node (or node
-                        (treesit-node-at (point))))
-         (dad (treesit-node-prev-sibling this-node))
-         (cmd (and (treesit-node-match-p dad "escaped_word")
-                   (treesit-node-text dad t))))
+  (and-let* ((this-node (or node
+                            (treesit-node-at (point))))
+             (dad (treesit-node-prev-sibling this-node))
+             (cmd (and (treesit-node-match-p dad "^escaped_word$")
+                       (treesit-node-text dad t))))
     (cond
      ((string-equal cmd "\\clef")
       (lilypond-ts-list clefs))
@@ -425,7 +425,7 @@ of Lilypond."
 (defun lilypond-ts--symbol-capf (&optional predicate)
   (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
              (this-node (treesit-node-at (point)))
-             ((treesit-node-match-p this-node "symbol"))
+             ((treesit-node-match-p this-node "^symbol$"))
              (start (treesit-node-start this-node))
              (end (treesit-node-end this-node))
              ((< start end))
@@ -472,13 +472,13 @@ of Lilypond."
   (let* ((this-node (or node
                         (treesit-node-at (point))))
          (parent-node (treesit-node-parent this-node))
-         (prop-ex-p (treesit-node-match-p parent-node "property_expression"))
-         (func-node (treesit-search-forward this-node "escaped_word" t))
+         (prop-ex-p (treesit-node-match-p parent-node "^property_expression$"))
+         (func-node (treesit-search-forward this-node "^escaped_word$" t))
          (func-text (string-trim-left (treesit-node-text func-node t)
                                       "\\\\"))
          (left-sib (when prop-ex-p (treesit-node-prev-sibling
                                     (treesit-node-prev-sibling this-node))))
-         (left-sib (if (treesit-node-match-p left-sib "property_expression")
+         (left-sib (if (treesit-node-match-p left-sib "^property_expression$")
                        (car (last (treesit-node-children left-sib)))
                      left-sib))
          (right-sib (when prop-ex-p (treesit-node-next-sibling
@@ -502,7 +502,7 @@ of Lilypond."
     (when lilypond-ts--debug-msgs
       (message "Debug lilypond-ts--property-completions: %s %s %s"
                func-text left-text right-text))
-    (when (and (treesit-node-match-p this-node "symbol")
+    (when (and (treesit-node-match-p this-node "^symbol$")
                (or prop-ex-p
                    (seq-contains-p lilypond-ts--context-property-functions
                                    func-text)
@@ -528,10 +528,10 @@ of Lilypond."
 (defun lilypond-ts--property-capf (&optional predicate)
   (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
              (this-node (treesit-node-at (point)))
-             (this-node (if (treesit-node-match-p this-node "punctuation")
+             (this-node (if (treesit-node-match-p this-node "^punctuation$")
                             (treesit-node-at (1- (point)))
                           this-node))
-             ((treesit-node-match-p this-node "symbol"))
+             ((treesit-node-match-p this-node "^symbol$"))
              (start (treesit-node-start this-node))
              (end (treesit-node-end this-node))
              ((< start end))
@@ -559,7 +559,7 @@ of Lilypond."
 (defun lilypond-ts--escaped-word-capf (&optional predicate)
   (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
              (this-node (treesit-node-at (point)))
-             ((treesit-node-match-p this-node "escaped_word"))
+             ((treesit-node-match-p this-node "^escaped_word$"))
              (start (1+ (treesit-node-start this-node)))
              (end (treesit-node-end this-node))
              ((< start end)))

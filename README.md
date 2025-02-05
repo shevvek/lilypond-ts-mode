@@ -12,6 +12,7 @@ Currently this package is in alpha.
 * Smart type-based auto-completion for property expressions (e.g. `Staff.TextScript.whiteout`).
 * Auto-completion for `\`-escaped words (e.g. `\relative`).
 * Auto-documentation in both LilyPond and Scheme code for music functions, markup/markuplist functions, and Scheme primitive functions exported from the LilyPond binary.
+* Parser-based structured navigation (symbol, list, sexp, defun)
 * Basic imenu support.
 
 ## Prerequisites
@@ -36,7 +37,6 @@ Currently this package is in alpha.
 
 ## Planned features
 * Load user and project LilyPond and Scheme libraries when initializing the LilyPond Scheme REPL.
-* Parser-based structured navigation.
 * Auto-completion support for symbols within Scheme code (e.g. grob interfaces, event classes).
 * Specific syntax completion and highlighting (e.g. `\clef`, `\repeat`, `\consists`, chordmode).
 * `\paper` block highlighting and auto-completion.

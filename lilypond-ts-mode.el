@@ -37,6 +37,50 @@
 
 (defvar lilypond-ts--debug-msgs nil)
 
+;;; Things
+
+(defsubst lilypond-ts--node-preceded-by-whitespace (node)
+  (string-match-p "\\s-" (string (char-before (treesit-node-start node)))))
+
+(defvar lilypond-ts--defun-query
+  (treesit-query-compile 'lilypond
+                         '(((assignment_lhs :anchor
+                                            (symbol) @name))
+                           ((named_context) @ctx)
+                           ((scheme_list :anchor
+                                         ((scheme_symbol) @kwd
+                                          (:match "^define" @kwd)))))))
+
+(defvar lilypond-ts--thing-settings
+  `((lilypond
+     (defun ,(lambda (n)
+               (treesit-query-capture n lilypond-ts--defun-query)))
+     (sexp (or symbol
+               list
+               ,(regexp-opt '("chord"
+                              "property_expression"
+                              "named_context"
+                              "embedded_scheme"
+                              "scheme_embedded_lilypond"))))
+     (list ,(regexp-opt '("expression_block"
+                          "parallel_music"
+                          "scheme_list"
+                          "scheme_vector"
+                          "scheme_byte_vector")))
+     (symbol (or ,(regexp-opt '("escaped_word"
+                                "symbol" ;; also matches scheme_symbol
+                                "string" ;; also matches scheme_string
+                                "scheme_boolean"
+                                "scheme_keyword"
+                                "scheme_character"
+                                "scheme_number"))
+                 (,(regexp-opt '("unsigned_integer"
+                                 "fraction"
+                                 "decimal_number"))
+                  . lilypond-ts--node-preceded-by-whitespace)))
+     (text ,(regexp-opt '("comment" ;; also matches scheme_comment
+                          ))))))
+
 ;;; Embedded Scheme
 
 (defun lilypond-ts--scheme-ranges (&optional start end)
@@ -601,6 +645,7 @@ of Lilypond."
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
+    (setq-local treesit-thing-settings lilypond-ts--thing-settings)
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        (lilypond-ts--font-lock-rules)))

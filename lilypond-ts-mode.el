@@ -42,29 +42,40 @@
 (defsubst lilypond-ts--node-preceded-by-whitespace (node)
   (string-match-p "\\s-" (string (char-before (treesit-node-start node)))))
 
+(defsubst lilypond-ts--node-top-level-p (node)
+  (treesit-node-match-p (treesit-node-parent node) "lilypond_program"))
+
 (defvar lilypond-ts--defun-query
   (treesit-query-compile 'lilypond
                          '(((assignment_lhs :anchor
-                                            (symbol) @name))
+                                            (symbol) @name) @def
+                                            (:pred lilypond-ts--node-top-level-p
+                                                   @def))
                            (((escaped_word) @kwd
                              (:match "^\\\\parserDefine$" @kwd)))
                            ((scheme_list :anchor
                                          ((scheme_symbol) @kwd
-                                          (:match "^define" @kwd)))))))
+                                          (:match "^define" @kwd))) @def))))
 
-(defun lilypond-ts--defun-binding (node)
+(defun lilypond-ts--defun-name (node)
   "For defun node, return the name of the corresponding function or variable.
 For assignment_lhs, this will be the text of the symbol at node, otherwise the
 text of the next symbol after node."
-  (treesit-node-text (if (treesit-node-match-p node "^symbol$")
-                         node
-                       (treesit-thing-next (treesit-node-end node) 'symbol))
-                     t))
+  (when (treesit-node-match-p node 'defun)
+    (let ((start (treesit-node-start node)))
+      (treesit-node-text (if (treesit-node-match-p node "assignment_lhs")
+                             (treesit-thing-at start 'symbol)
+                           (treesit-thing-next (treesit-node-end
+                                                (treesit-thing-next start
+                                                                    'symbol))
+                                               'symbol))
+                         t))))
 
 (defvar lilypond-ts--thing-settings
   `((lilypond
      (defun ,(lambda (n)
-               (treesit-query-capture n lilypond-ts--defun-query)))
+               (treesit-node-eq
+                n (cdar (treesit-query-capture n lilypond-ts--defun-query)))))
      (sexp (or symbol
                list
                ,(regexp-opt '("chord"
@@ -90,6 +101,13 @@ text of the next symbol after node."
                   . lilypond-ts--node-preceded-by-whitespace)))
      (text ,(regexp-opt '("comment" ;; also matches scheme_comment
                           ))))))
+
+(defvar lilypond-ts-imenu-rules
+  `(("Definitions" defun)
+    ("Contexts" "named_context"
+     ,(lambda (node)
+        (= 4 (treesit-node-child-count node)))
+     treesit-node-text)))
 
 ;;; Embedded Scheme
 
@@ -181,27 +199,6 @@ of Lilypond."
      ;; Fallback default
      (catch-all parent 0)
      )))
-
-;;; Imenu
-
-(defvar lilypond-ts-imenu-rules
-  `(("Definitions" "assignment_lhs"
-     ,(lambda (node)
-        (equal "lilypond_program"
-               (treesit-node-type
-                (treesit-node-parent node))))
-     treesit-node-text)
-    ("ParserDefines" "escaped_word"
-     ,(lambda (node)
-        (equal "\\parserDefine"
-               (treesit-node-text node)))
-     ,(lambda (node)
-        (treesit-node-text
-         (treesit-node-next-sibling node))))
-    ("Contexts" "named_context"
-     ,(lambda (node)
-        (= 4 (treesit-node-child-count node)))
-     treesit-node-text)))
 
 ;;; Keyword lists
 
@@ -656,6 +653,8 @@ of Lilypond."
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
     (setq-local treesit-thing-settings lilypond-ts--thing-settings)
+    (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
+    (setq-local treesit-defun-tactic 'nested)
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        (lilypond-ts--font-lock-rules)))

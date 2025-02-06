@@ -12,8 +12,7 @@ Currently this package is in alpha.
 * Smart type-based auto-completion for property expressions (e.g. `Staff.TextScript.whiteout`).
 * Auto-completion for `\`-escaped words (e.g. `\relative`).
 * Auto-documentation in both LilyPond and Scheme code for music functions, markup/markuplist functions, and Scheme primitive functions exported from the LilyPond binary.
-* Parser-based structured navigation (symbol, list, sexp, defun)
-* Basic imenu support.
+* Parser-based structured navigation (symbol, list, sexp, defun) and imenu.
 
 ## Prerequisites
 * Emacs 30+ with `treesit` enabled

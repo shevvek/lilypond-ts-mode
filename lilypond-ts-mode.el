@@ -638,7 +638,7 @@ of Lilypond."
 ;;; Eval
 
 (defun lilypond-ts-eval-region (start end)
-  "Async eval the region within the current Geiser Lilypond REPL."
+  "Async eval the region within the current Geiser LilyPond REPL."
   (interactive "r")
   (let* ((start-node (treesit-node-at start))
          (end-node (treesit-node-at end))
@@ -660,6 +660,22 @@ of Lilypond."
          (lambda (s)
            (message "%s" (geiser-eval--retort-result-str s nil))))
         (run-hooks 'lilypond-ts-post-eval-hook)))))
+
+(defun lilypond-ts-eval-buffer (&optional buffer)
+  "Async eval a LilyPond buffer within the current Geiser LilyPond REPL."
+  (interactive)
+  (let* ((buf (or buffer (current-buffer)))
+         (fname (expand-file-name (buffer-file-name buf))))
+    (with-current-buffer buf
+      (if (file-exists-p fname)
+          (geiser-eval--send
+           `(:eval (ly:parser-parse-string
+                    (ly:parser-clone)
+                    ,(format "\\include \"%s\"" fname)))
+           (lambda (s)
+             (run-hooks 'lilypond-ts-post-eval-hook)
+             (message "%s" s)))
+        (lilypond-ts-eval-region (point-min) (point-max))))))
 
 ;;; Mode-init
 

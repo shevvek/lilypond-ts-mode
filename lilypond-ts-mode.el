@@ -46,10 +46,20 @@
   (treesit-query-compile 'lilypond
                          '(((assignment_lhs :anchor
                                             (symbol) @name))
-                           ((named_context) @ctx)
+                           (((escaped_word) @kwd
+                             (:match "^\\\\parserDefine$" @kwd)))
                            ((scheme_list :anchor
                                          ((scheme_symbol) @kwd
                                           (:match "^define" @kwd)))))))
+
+(defun lilypond-ts--defun-binding (node)
+  "For defun node, return the name of the corresponding function or variable.
+For assignment_lhs, this will be the text of the symbol at node, otherwise the
+text of the next symbol after node."
+  (treesit-node-text (if (treesit-node-match-p node "^symbol$")
+                         node
+                       (treesit-thing-next (treesit-node-end node) 'symbol))
+                     t))
 
 (defvar lilypond-ts--thing-settings
   `((lilypond

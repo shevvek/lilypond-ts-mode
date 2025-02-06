@@ -215,9 +215,21 @@ of Lilypond."
     (plist-put plist :value (delq nil (mapcar wrap-element new-data))))
   (plist-get plist :value))
 
+(defvar lilypond-ts-post-eval-hook
+  nil)
+
+(defvar lilypond-ts--lists-to-refresh
+  nil)
+
+(defun lilypond-ts--require-list-refresh ()
+  (dolist (plist lilypond-ts--lists-to-refresh)
+    (plist-put plist :needs-update t)))
+
 (defmacro lilypond-ts-list (suffix)
   (let ((plist-name (intern (concat "lilypond-ts--" (symbol-name suffix)))))
-    `(lilypond-ts--get-and-maybe-refresh ,plist-name)))
+    `(progn
+       (add-to-list 'lilypond-ts--lists-to-refresh ,plist-name)
+       (lilypond-ts--get-and-maybe-refresh ,plist-name))))
 
 (defvar lilypond-ts--lexer-keywords
   '(;; extracted from lily-lexer.cc
@@ -639,13 +651,15 @@ of Lilypond."
      ((not one-lang-parent-p)
       (message "lilypond-ts-eval-region error: start and end node do not belong to the same language block."))
      ((treesit-node-match-p start-lang-block "embedded_scheme_text")
-      (geiser-eval-region start end))
+      (geiser-eval-region start end)
+      (run-hooks 'lilypond-ts-post-eval-hook))
      (t (geiser-eval--send
          `(:eval (ly:parser-parse-string
                   (ly:parser-clone)
                   ,(buffer-substring-no-properties start end)))
          (lambda (s)
-           (message "%s" (geiser-eval--retort-result-str s nil))))))))
+           (message "%s" (geiser-eval--retort-result-str s nil))))
+        (run-hooks 'lilypond-ts-post-eval-hook)))))
 
 ;;; Mode-init
 
@@ -667,6 +681,7 @@ of Lilypond."
     ;; (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+    (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1)

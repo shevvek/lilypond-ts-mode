@@ -18,6 +18,7 @@
 (require 'treesit)
 (require 'scheme)
 (require 'geiser-lilypond-guile)
+(require 'cl-lib)
 
 (defvar lilypond-ts-grammar-url
   "https://github.com/nwhetsell/tree-sitter-lilypond/")
@@ -108,6 +109,83 @@ text of the next symbol after node."
      ,(lambda (node)
         (= 4 (treesit-node-child-count node)))
      treesit-node-text)))
+
+;;; Range overlay utilities
+
+;; Potentially should be upstreamed -> treesit
+
+(defsubst lilypond-ts--overlay-match-p (ov plist)
+  "Return non-nil if OV has every property in PLIST with a matching value."
+  (cl-loop for (key value) on plist by #'cddr
+           always (equal (overlay-get ov key) value)))
+
+(defun lilypond-ts--update-overlay (beg end &rest props)
+  (let ((overlay (seq-find (lambda (ov)
+                             (lilypond-ts--overlay-match-p ov props))
+                           (overlays-in beg end))))
+    (if overlay
+        (move-overlay overlay beg end)
+      (setq overlay (make-overlay beg end))
+      (cl-loop for (key value) on props by #'cddr
+               do (overlay-put overlay key value)))
+    (overlay-put overlay :lilypond-ts-tick (buffer-chars-modified-tick))))
+
+(defun lilypond-ts--put-moment-overlays (moment-location-table)
+  (save-excursion
+    (cl-loop for (ln ch moment index) in moment-location-table
+             and last-ln = 1 then ln
+             and last-pt = nil then (point)
+             and last-moment = nil then moment
+             and last-index = nil then index
+             and parent-end = nil then (treesit-node-end
+                                        (treesit-parent-until
+                                         (treesit-node-at (point)) 'list))
+             initially (goto-line 1)
+             do (forward-line (- ln last-ln))
+             do (forward-char ch)
+             when last-pt
+             do (lilypond-ts--update-overlay last-pt (min (1- (point))
+                                                          parent-end)
+                                             :moment last-moment
+                                             :index last-index)
+             finally
+             (lilypond-ts--update-overlay (point)
+                                          (treesit-node-end
+                                           (treesit-parent-until
+                                            (treesit-node-at (point)) 'list))
+                                          :moment moment
+                                          :index index))))
+
+(defvar lilypond-ts--moment-navigation-table
+  nil)
+
+(defun lilypond-ts--refresh-moment-nav (table-alist)
+  (setq lilypond-ts--moment-navigation-table (cdr (assq 'by-moment table-alist)))
+  (cl-loop for (file . table) in (cdr (assq 'by-file table-alist))
+           do (with-current-buffer (find-file-noselect file)
+                (lilypond-ts--put-moment-overlays table))))
+
+(defun lilypond-ts--generate-moment-tables (files var-names)
+  (dolist (file files)
+    (lilypond-ts-eval-buffer (find-file-noselect file)))
+  (geiser-eval--send
+   `(:eval (sort-moment-origin-table (record-origins-by-moment ,@var-names)))
+   (lambda (s)
+     (lilypond-ts--refresh-moment-nav (geiser-eval--retort-result s)))))
+
+(defun lilypond-ts-traverse-moment (&optional n)
+  (interactive "p")
+  (let* ((pos (point))
+         (this-moment (get-char-property pos :moment))
+         (index  (get-char-property pos :index))
+         (dest-index (% (+ index n)
+                        (length lilypond-ts--moment-navigation-table))))
+    (cl-loop for (moment file ln ch)
+             in (nth dest-index lilypond-ts--moment-navigation-table)
+             until (<= moment this-moment)
+             finally (find-file file)
+             (goto-line ln)
+             (forward-char ch))))
 
 ;;; Embedded Scheme
 

@@ -130,19 +130,21 @@ text of the next symbol after node."
                do (overlay-put overlay key value)))
     (overlay-put overlay :lilypond-ts-tick (buffer-chars-modified-tick))))
 
+(defun lilypond-ts--go-to-loc (file ln ch)
+  (when file (find-file file))
+  (forward-line (- ln (line-number-at-pos (point))))
+  (forward-char ch))
+
 (defun lilypond-ts--put-moment-overlays (moment-location-table)
   (save-excursion
     (cl-loop for (ln ch moment index) in moment-location-table
-             and last-ln = 1 then ln
              and last-pt = nil then (point)
              and last-moment = nil then moment
              and last-index = nil then index
              and parent-end = nil then (treesit-node-end
                                         (treesit-parent-until
                                          (treesit-node-at (point)) 'list))
-             initially (goto-line 1)
-             do (forward-line (- ln last-ln))
-             do (forward-char ch)
+             do (lilypond-ts--go-to-loc nil ln ch)
              when last-pt
              do (lilypond-ts--update-overlay last-pt (min (1- (point))
                                                           parent-end)
@@ -173,19 +175,46 @@ text of the next symbol after node."
    (lambda (s)
      (lilypond-ts--refresh-moment-nav (geiser-eval--retort-result s)))))
 
+(defvar lilypond-ts--moment-navigation-mark
+  nil)
+
+;; Skip nav table columns where current moment is out of bounds
+;; Handle fail to find
+;; Go to beginning/end of overlay depending on = or < moment
 (defun lilypond-ts-traverse-moment (&optional n)
   (interactive "p")
   (let* ((pos (point))
-         (this-moment (get-char-property pos :moment))
+         (this-moment (or lilypond-ts--moment-navigation-mark
+                          (get-char-property pos :moment)))
          (index  (get-char-property pos :index))
          (dest-index (% (+ index n)
                         (length lilypond-ts--moment-navigation-table))))
     (cl-loop for (moment file ln ch)
              in (nth dest-index lilypond-ts--moment-navigation-table)
              until (<= moment this-moment)
-             finally (find-file file)
-             (goto-line ln)
-             (forward-char ch))))
+             finally (lilypond-ts--go-to-loc file ln ch))))
+
+(defun lilypond-ts-set-moment-navigation-mark (&optional unset)
+  (interactive "P")
+  (if unset
+      (setq lilypond-ts--moment-navigation-mark nil)
+    (setq lilypond-ts--moment-navigation-mark
+          (get-char-property (point) :moment))))
+
+(defun lilypond-ts-next-moment (&optional n)
+  (interactive "p")
+  (let* ((pos (point))
+         (this-moment (get-char-property pos :moment))
+         (voice-index (get-char-property pos :index))
+         (my-table (nth voice-index lilypond-ts--moment-navigation-table))
+         (moment-index (seq-position my-table this-moment (lambda (elt now)
+                                                            (= (car elt) now))))
+         ;; Subtract n because the moment list is backwards
+         (dest-index (- moment-index n))
+         (max-index (1- (length my-table)))
+         (dest-loc (nth (if (< max-index dest-index) max-index dest-index)
+                        my-table)))
+    (apply #'lilypond-ts--go-to-loc (cdr dest-loc))))
 
 ;;; Embedded Scheme
 

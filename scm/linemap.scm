@@ -2,6 +2,7 @@
              (srfi srfi-26)
              (srfi srfi-71))
 
+;; Maybe record end moment per Voice
 (define*-public (record-origins-by-moment #:rest musics)
   (let ((origin-alists '()))
     (define (Record_locations_translator ctx)
@@ -9,7 +10,7 @@
             (got-event-this-step #f))
         (make-translator
          (listeners
-          ((music-event translator event)
+          ((rhythmic-event translator event)
            (and-let* (((not got-event-this-step))
                       (now (ly:moment-main (ly:context-current-moment ctx)))
                       (location (ly:event-property event 'origin #f))

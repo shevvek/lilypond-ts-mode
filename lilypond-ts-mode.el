@@ -181,27 +181,54 @@ text of the next symbol after node."
 ;; Skip nav table columns where current moment is out of bounds
 ;; Handle fail to find
 ;; Go to beginning/end of overlay depending on = or < moment
-(defun lilypond-ts-traverse-moment (&optional n)
+(defun lilypond-ts-forward-same-moment (&optional n)
+  "Move to the same musical moment in the next musical expression. With prefix
+argument N, move that many musical expressions forward or, for negative N,
+backward. If an expression has no music for the exact moment, move to the
+nearest earlier moment. If lilypond-ts--goal-moment is non-nil, use that moment
+instead of the moment at point. When the last music expression is reached, wrap
+around to the first. To use navigation by musical moment, first evaluate the
+buffer using lilypond-ts-eval-buffer."
   (interactive "p")
   (let* ((pos (point))
-         (this-moment (or lilypond-ts--moment-navigation-mark
+         (this-moment (or lilypond-ts--goal-moment
                           (get-char-property pos :moment)))
          (index  (get-char-property pos :index))
-         (dest-index (% (+ index n)
-                        (length lilypond-ts--moment-navigation-table))))
+         (dest-index (mod (+ index n)
+                          (length lilypond-ts--moment-navigation-table))))
     (cl-loop for (moment file ln ch)
              in (nth dest-index lilypond-ts--moment-navigation-table)
              until (<= moment this-moment)
              finally (lilypond-ts--go-to-loc file ln ch))))
 
-(defun lilypond-ts-set-moment-navigation-mark (&optional unset)
+(defsubst lilypond-ts-backward-same-moment (&optional n)
+  "Move to the same musical moment in the previous musical expression. With
+prefix argument N, move that many musical expressions backward or, for negative
+N, forward. If an expression has no music for the exact moment, move to the
+nearest earlier moment. If lilypond-ts--goal-moment is non-nil, use that moment
+instead of the moment at point. When the last music expression is reached, wrap
+around to the first. To use navigation by musical moment, first evaluate the
+buffer using lilypond-ts-eval-buffer."
+  (interactive "p")
+  (lilypond-ts-forward-same-moment (- n)))
+
+(defun lilypond-ts-set-goal-moment (&optional unset)
+  "Set lilypond-ts--goal-moment to the moment at point. With prefix argument
+UNSET, set it to nil. This allows forward-same-moment and backward-same-moment
+to cycle through all music expressions in relation to the same moment, instead
+of drifting away from the starting moment whenever an expression lacks music at
+the exact same moment."
   (interactive "P")
   (if unset
-      (setq lilypond-ts--moment-navigation-mark nil)
-    (setq lilypond-ts--moment-navigation-mark
+      (setq lilypond-ts--goal-moment nil)
+    (setq lilypond-ts--goal-moment
           (get-char-property (point) :moment))))
 
-(defun lilypond-ts-next-moment (&optional n)
+(defun lilypond-ts-forward-moment (&optional n)
+  "Move forward to the next musical moment after point in the current music
+expression. With prefix argument N, do it N times. For negative arg -N, move
+backwards. To use navigation by musical moment, first evaluate the buffer using
+lilypond-ts-eval-buffer."
   (interactive "p")
   (let* ((pos (point))
          (this-moment (get-char-property pos :moment))
@@ -215,6 +242,14 @@ text of the next symbol after node."
          (dest-loc (nth (if (< max-index dest-index) max-index dest-index)
                         my-table)))
     (apply #'lilypond-ts--go-to-loc (cdr dest-loc))))
+
+(defsubst lilypond-ts-backward-moment (&optional n)
+  "Move backward to the next musical moment before point in the current music
+expression. With prefix argument N, do it N times. For negative arg -N, move
+forwards. To use navigation by musical moment, first evaluate the buffer using
+lilypond-ts-eval-buffer."
+  (interactive "p")
+  (lilypond-ts-forward-moment (- n)))
 
 ;;; Embedded Scheme
 

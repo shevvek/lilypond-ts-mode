@@ -38,10 +38,50 @@
 
 (defvar lilypond-ts--debug-msgs nil)
 
-;;; Things
+;;; Utilities
+;; These functions are generic and could be upstreamed.
+
+(defsubst lilypond-ts--overlay-match-p (ov plist)
+  "Return non-nil if OV has every property in PLIST with a matching value."
+  (cl-loop for (key value) on plist by #'cddr
+           always (equal (overlay-get ov key) value)))
+
+(defun lilypond-ts--update-overlay (beg end tick &rest props)
+  "Ensure there is an overlay bounded by BEG and END with its :update-tick set
+to TICK and properties PROPS. If there is an existing overlay in the interval
+BEG to END with all properties and values in PROPS, move it and update its
+:update-tick. Otherwise, create a new overlay."
+  (let ((overlay (seq-find (lambda (ov)
+                             (lilypond-ts--overlay-match-p ov props))
+                           (overlays-in beg end))))
+    (if overlay
+        (move-overlay overlay beg end)
+      (setq overlay (make-overlay beg end))
+      (cl-loop for (key value) on props by #'cddr
+               do (overlay-put overlay key value)))
+    (overlay-put overlay :update-tick tick)))
+
+(defun lilypond-ts--cleanup-overlays (tick &optional beg end &rest keys)
+  "Remove overlays on the current buffer with :update-tick < TICK. Optionally,
+only look at overlays between BEG and END. Only look at overlays that include
+all properties in KEYS."
+  (cl-loop for ov being the overlays
+           from (or beg (point-min)) to (or end (point-max))
+           for props = (overlay-properties ov)
+           when (and (not (seq-difference keys props))
+                     (< (plist-get props :update-tick) tick))
+           do (delete-overlay ov)))
+
+(defun lilypond-ts--go-to-loc (file ln ch)
+  "Open FILE and move point to line LN character CH."
+  (when file (find-file file))
+  (forward-line (- ln (line-number-at-pos (point))))
+  (forward-char ch))
 
 (defsubst lilypond-ts--node-preceded-by-whitespace (node)
   (string-match-p "\\s-" (string (char-before (treesit-node-start node)))))
+
+;;; Things
 
 (defsubst lilypond-ts--node-top-level-p (node)
   (treesit-node-match-p (treesit-node-parent node) "lilypond_program"))
@@ -110,34 +150,12 @@ text of the next symbol after node."
         (= 4 (treesit-node-child-count node)))
      treesit-node-text)))
 
-;;; Range overlay utilities
-
-;; Potentially should be upstreamed -> treesit
-
-(defsubst lilypond-ts--overlay-match-p (ov plist)
-  "Return non-nil if OV has every property in PLIST with a matching value."
-  (cl-loop for (key value) on plist by #'cddr
-           always (equal (overlay-get ov key) value)))
-
-(defun lilypond-ts--update-overlay (beg end &rest props)
-  (let ((overlay (seq-find (lambda (ov)
-                             (lilypond-ts--overlay-match-p ov props))
-                           (overlays-in beg end))))
-    (if overlay
-        (move-overlay overlay beg end)
-      (setq overlay (make-overlay beg end))
-      (cl-loop for (key value) on props by #'cddr
-               do (overlay-put overlay key value)))
-    (overlay-put overlay :lilypond-ts-tick (buffer-chars-modified-tick))))
-
-(defun lilypond-ts--go-to-loc (file ln ch)
-  (when file (find-file file))
-  (forward-line (- ln (line-number-at-pos (point))))
-  (forward-char ch))
+;;; Musical navigation
 
 (defun lilypond-ts--put-moment-overlays (moment-location-table)
   (save-excursion
-    (cl-loop for (ln ch moment index) in moment-location-table
+    (cl-loop with tick = (buffer-chars-modified-tick)
+             for (ln ch moment index) in moment-location-table
              and last-pt = nil then (point)
              and last-moment = nil then moment
              and last-index = nil then index
@@ -148,6 +166,7 @@ text of the next symbol after node."
              when last-pt
              do (lilypond-ts--update-overlay last-pt (min (1- (point))
                                                           parent-end)
+                                             tick
                                              :moment last-moment
                                              :index last-index)
              finally
@@ -155,8 +174,10 @@ text of the next symbol after node."
                                           (treesit-node-end
                                            (treesit-parent-until
                                             (treesit-node-at (point)) 'list))
+                                          tick
                                           :moment moment
-                                          :index index))))
+                                          :index index)
+             finally (lilypond-ts--cleanup-overlays tick nil nil :moment))))
 
 (defvar lilypond-ts--moment-navigation-table
   nil)

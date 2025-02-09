@@ -161,6 +161,32 @@ text of the next symbol after node."
 (defvar lilypond-ts--moment-navigation-table
   nil)
 
+(defvar lilypond-ts-moment-eval-config
+  nil
+  "List controlling moment navigation refresh. Each element is of the form:
+
+((<file eval redirections>) . (:include|:exclude <moment navigation variables>))
+
+When eval-buffer is run on any of the files in <file eval redirections>, run
+eval-buffer on the first file listed instead. Generally this is because it
+\\includes the others.
+
+The cdr list containing <moment navigation variables> can be omitted entirely,
+in which case moment navigation data is generated for all variables of type
+ly:music? defined in any file within <file eval redirections>.
+
+The variables named in <moment navigation variables> will be excluded when
+generating and refreshing moment navigation data if preceded by :exclude. This
+is useful for example if an input file contains a lyrics variable.
+
+If <moment navigation variables> is instead preceded instead by :include, then
+only the variables named will be used for moment navigation. This is useful for
+example if an input file includes a large number of custom command definitions
+that are music expressions, alongside a smaller number of variables containing
+the musical content.
+
+This variable is a good candidate for .dir-locals.el")
+
 (defun lilypond-ts--refresh-moment-nav (table-alist)
   (setq lilypond-ts--moment-navigation-table (cdr (assq 'by-moment table-alist)))
   (cl-loop for (file . table) in (cdr (assq 'by-file table-alist))
@@ -175,7 +201,44 @@ text of the next symbol after node."
    (lambda (s)
      (lilypond-ts--refresh-moment-nav (geiser-eval--retort-result s)))))
 
-(defvar lilypond-ts--moment-navigation-mark
+(defun lilypond-ts--list-defuns (filename)
+  (with-current-buffer (find-file-noselect filename)
+    (let* ((defuns (apply #'append
+                          (treesit-induce-sparse-tree (treesit-buffer-root-node)
+                                                      'defun
+                                                      treesit-defun-name-function
+                                                      1)))
+           (defun-syms (mapcar #'intern defuns)))
+      (geiser-eval--send/result
+       `(:eval (filter (compose ly:music? ly:parser-lookup) ',defun-syms))))))
+
+
+;; To do: what if not all files to be evaled are included in (caar config)?
+;; Print progress messages
+(defun lilypond-ts-eval-buffer-and-refresh-nav (&optional buffer)
+  (interactive)
+  (let* ((this-file (buffer-file-name buffer))
+         (config (assoc this-file lilypond-ts-moment-eval-config
+                        (lambda (key this)
+                          (seq-contains-p key this #'file-equal-p))))
+         (all-defuns (cond
+                      ((eq :include (cadr config))
+                       (cddr config))
+                      (config
+                       (mapcan #'lilypond-ts--list-defuns (car config)))
+                      (t (lilypond-ts--list-defuns this-file))))
+         (excludes (when (eq :exclude (cadr config))
+                     (cddr config)))
+         (nav-defuns (seq-difference all-defuns excludes))
+         (file-to-eval (or (caar config)
+                           this-file)))
+    (lilypond-ts-eval-buffer (find-file-noselect file-to-eval))
+    (geiser-eval--send
+     `(:eval (sort-moment-origin-table (record-origins-by-moment ,@nav-defuns)))
+     (lambda (s)
+       (lilypond-ts--refresh-moment-nav (geiser-eval--retort-result s))))))
+
+(defvar lilypond-ts--goal-moment
   nil)
 
 ;; Skip nav table columns where current moment is out of bounds

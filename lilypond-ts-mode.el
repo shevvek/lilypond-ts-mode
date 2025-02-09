@@ -882,6 +882,35 @@ of Lilypond."
              (message "%s" s)))
         (lilypond-ts-eval-region (point-min) (point-max))))))
 
+;;; Keymap
+
+(defvar lilypond-ts-mode-map (make-sparse-keymap))
+(define-key lilypond-ts-mode-map
+            [remap eval-buffer] #'lilypond-ts-eval-buffer-and-refresh-nav)
+(define-key lilypond-ts-mode-map
+            [remap geiser-eval-buffer]
+            #'lilypond-ts-eval-buffer-and-refresh-nav)
+(define-key lilypond-ts-mode-map
+            (kbd "C-c C-b") #'lilypond-ts-eval-buffer-and-refresh-nav)
+(define-key lilypond-ts-mode-map
+            (kbd "C-c M-b") #'lilypond-ts-eval-buffer)
+(define-key lilypond-ts-mode-map
+            [remap eval-region] #'lilypond-ts-eval-region)
+(define-key lilypond-ts-mode-map
+            [remap geiser-eval-region] #'lilypond-ts-eval-region)
+(define-key lilypond-ts-mode-map
+            (kbd "C-c C-r") #'lilypond-ts-eval-region)
+(define-key lilypond-ts-mode-map
+            [remap forward-sentence] #'lilypond-ts-forward-moment)
+(define-key lilypond-ts-mode-map
+            [remap backward-sentence] #'lilypond-ts-backward-moment)
+(define-key lilypond-ts-mode-map
+            [remap forward-paragraph] #'lilypond-ts-forward-same-moment)
+(define-key lilypond-ts-mode-map
+            [remap backward-paragraph] #'lilypond-ts-backward-same-moment)
+(define-key lilypond-ts-mode-map
+            (kbd "C-c C-n") 'lilypond-ts-set-goal-moment)
+
 ;;; Mode-init
 
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"

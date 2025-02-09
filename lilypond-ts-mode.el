@@ -236,12 +236,15 @@ This variable is a good candidate for .dir-locals.el")
 
 ;; To do: what if not all files to be evaled are included in (caar config)?
 ;; Print progress messages
+;; Refactor nav refresh into async callback
 (defun lilypond-ts-eval-buffer-and-refresh-nav (&optional buffer)
   (interactive)
   (let* ((this-file (buffer-file-name buffer))
          (config (assoc this-file lilypond-ts-moment-eval-config
                         (lambda (key this)
                           (seq-contains-p key this #'file-equal-p))))
+         (e (lilypond-ts-eval-buffer (find-file-noselect (or (caar config)
+                                                             this-file))))
          (all-defuns (cond
                       ((eq :include (cadr config))
                        (cddr config))
@@ -250,10 +253,7 @@ This variable is a good candidate for .dir-locals.el")
                       (t (lilypond-ts--list-defuns this-file))))
          (excludes (when (eq :exclude (cadr config))
                      (cddr config)))
-         (nav-defuns (seq-difference all-defuns excludes))
-         (file-to-eval (or (caar config)
-                           this-file)))
-    (lilypond-ts-eval-buffer (find-file-noselect file-to-eval))
+         (nav-defuns (seq-difference all-defuns excludes)))
     (geiser-eval--send
      `(:eval (sort-moment-origin-table (record-origins-by-moment ,@nav-defuns)))
      (lambda (s)

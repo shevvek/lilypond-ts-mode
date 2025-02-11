@@ -1,13 +1,15 @@
 # LilyPond Tree-sitter Mode
-This package provides `lilypond-ts-mode`, an Emacs major mode for [GNU LilyPond](https://lilypond.org/), using [the Tree-sitter grammar created by Nate Whetsell](https://github.com/nwhetsell/tree-sitter-lilypond/) and the built-in `treesit` feature of Emacs 30+. `lilypond-ts-mode` runs LilyPond itself as an interactive Scheme environment via [Geiser](https://www.nongnu.org/geiser/), enabling live access to LilyPond's full Scheme API from Emacs.
+This package provides `lilypond-ts-mode`, an Emacs major mode for [GNU LilyPond](https://lilypond.org/) that supports rhythmic position-based code navigation.
+
+`lilypond-ts-mode` uses [the Tree-sitter grammar created by Nate Whetsell](https://github.com/nwhetsell/tree-sitter-lilypond/) and the built-in `treesit` feature of Emacs 30+. `lilypond-ts-mode` runs LilyPond itself as an interactive Scheme environment via [Geiser](https://www.nongnu.org/geiser/), enabling live access to LilyPond's full Scheme API from Emacs.
 
 Currently this package is in alpha.
 
 ## Currently supported features
-* Live access to LilyPond's full Scheme API from Emacs, by running LilyPond itself as the Scheme REPL via Geiser. This is usable both for `lilypond-ts-mode` files and for `scheme-mode` files.
-* Interactively evaluate LilyPond code within the active REPL via `lilypond-ts-eval-region`. (Note: this is currently implemented in a way that does minimal checking for valid expression boundaries or error conditions.)
 * Musical time-based code navigation: cycle through the same measure/beat in all
 parts with a single command.
+* Live access to LilyPond's full Scheme API from Emacs, by running LilyPond itself as the Scheme REPL via Geiser. This is usable both for `lilypond-ts-mode` files and for `scheme-mode` files.
+* Interactively evaluate LilyPond code within the active REPL via `lilypond-ts-eval-region`. (Note: this is currently implemented in a way that does minimal checking for valid expression boundaries or error conditions.)
 * Parser based indentation for LilyPond code, with `scheme-mode` indentation of embedded Scheme. Arbitrarily nested embeddings are supported.
 * Smart type-based auto-completion for property expressions (e.g. `Staff.TextScript.whiteout`).
 * Auto-completion for `\`-escaped words (e.g. `\relative`).
@@ -71,7 +73,7 @@ Please keep in mind that this feature is very new. Bug reports are welcome.
 
 ## Known issues
 * Implementing parser-based thing-at-point has confused autodoc within LilyPond code. An update will fix this in the near future by re-implementing autodoc so that it doesn't rely so much on Geiser outside of Scheme syntax.
-* Currently, there can only be one musical navigation table at a time in a given file buffer. This means that if your project organizes music by instrument rather than by movement (i.e. instead of having music for all parts in `movement1.ily` you have music for all movements in `flute.ily`), music navigation will only work for one movement at a time.
+* Currently, there can only be one musical navigation table at a time in a given file buffer. This means that if your project organizes music by instrument rather than by movement (i.e. instead of having music for all parts in `movement1.ily`, you have music for all movements in `flute.ily`), music navigation will only work for one movement at a time.
 * The Geiser REPL can make Emacs unresponsive in some situations, most commonly due to very long lines having been printed in the REPL buffer. If this happens, `C-g` once or twice usually will unfreeze the Emacs UI. Clearing the Geiser REPL buffer and then restarting the REPL typically fixes the issue.
 
 ## Relation to lilypond-mode

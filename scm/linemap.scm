@@ -5,29 +5,48 @@
 (define (moment->nav-key m)
   (exact->inexact (ly:moment-main m)))
 
+((@@ (lily) translator-property-description)
+ 'recordLocationsCallback procedure? "Procedure called by
+@code{Record_locations_translator} during finalize to collect and export
+moment-location data from this context. Should accept a single argument:
+an alist mapping rhythmic positions to input locations.")
+
+(define-public (Record_locations_translator ctx)
+  (let ((origin-alist '())
+        (got-event-this-step #f))
+    (make-translator
+     (listeners
+      ((rhythmic-event translator event)
+       (and-let* (((not got-event-this-step))
+                  (now (moment->nav-key (ly:context-current-moment ctx)))
+                  (location (ly:event-property event 'origin #f))
+                  (loc-info (ly:input-file-line-char-column location)))
+         (set! origin-alist
+               (acons now (take loc-info 3) origin-alist))
+         (set! got-event-this-step #t))))
+     ((stop-translation-timestep translator)
+      (set! got-event-this-step #f))
+     ((finalize translator)
+      (let ((now (moment->nav-key (ly:context-current-moment ctx)))
+            (callback (ly:context-property ctx 'recordLocationsCallback
+                                           (const #f))))
+        (callback (cons `(,now) origin-alist)))))))
+
+(ly:register-translator
+ Record_locations_translator 'Record_locations_translator
+ '((grobs-created . ())
+   (events-accepted . (rhythmic-event))
+   (properties-read . (recordLocationsCallback))
+   (properties-written . ())
+   (description . "\
+Collect the moment (as a decimal) and input location (as filename, line, char)
+of context's first rhythmic-event in each timestep, plus the moment the context
+ends (without location). Export the resulting list by calling
+@code{recordLocationsCallback}.")))
+
 ;; Maybe record end moment per Voice
 (define*-public (record-origins-by-moment #:rest musics)
   (let ((origin-alists '()))
-    (define (Record_locations_translator ctx)
-      (let ((origin-alist '())
-            (got-event-this-step #f))
-        (make-translator
-         (listeners
-          ((rhythmic-event translator event)
-           (and-let* (((not got-event-this-step))
-                      (now (moment->nav-key (ly:context-current-moment ctx)))
-                      (location (ly:event-property event 'origin #f))
-                      (loc-info (ly:input-file-line-char-column location)))
-             (set! origin-alist
-                   (acons now (take loc-info 3) origin-alist))
-             (set! got-event-this-step #t))))
-         ((stop-translation-timestep translator)
-          (set! got-event-this-step #f))
-         ((finalize translator)
-          (let ((now (moment->nav-key (ly:context-current-moment ctx))))
-            (set! origin-alists (cons (cons `(,now) origin-alist)
-                                      origin-alists)))))))
-
     (ly:run-translator (make-simultaneous-music
                         (map (lambda (m)
                                #{ \killCues \new Staff { #m } #})
@@ -37,7 +56,10 @@
                            \partCombineListener
                            \context {
                              \Voice
-                             \consists #Record_locations_translator
+                             \consists Record_locations_translator
+                             recordLocationsCallback =
+                               #(lambda (l)
+                                 (set! origin-alists (cons l origin-alists)))
                            }
                          }
                        #})

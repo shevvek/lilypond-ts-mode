@@ -30,7 +30,7 @@
 
     (ly:run-translator (make-simultaneous-music
                         (map (lambda (m)
-                               #{ \new Staff { #m } #})
+                               #{ \killCues \new Staff { #m } #})
                              musics))
                        #{
                          \layout {

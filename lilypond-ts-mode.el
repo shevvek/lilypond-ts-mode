@@ -152,9 +152,12 @@ text of the next symbol after node."
 
 ;;; Musical navigation
 
+(defvar lilypond-ts--nav-update-tick 0)
+
 (defun lilypond-ts--put-moment-overlays (moment-location-table)
   (save-excursion
-    (cl-loop with tick = (buffer-chars-modified-tick)
+    (cl-loop with tick = (setq-local lilypond-ts--nav-update-tick
+                                     (1+ lilypond-ts--nav-update-tick))
              for (ln ch moment index) in moment-location-table
              and last-pt = nil then (point)
              and last-moment = nil then moment

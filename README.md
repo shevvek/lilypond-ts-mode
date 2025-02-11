@@ -71,8 +71,7 @@ Please keep in mind that this feature is very new. Bug reports are welcome.
 
 ## Known issues
 * Implementing parser-based thing-at-point has confused autodoc within LilyPond code. An update will fix this in the near future by re-implementing autodoc so that it doesn't rely so much on Geiser outside of Scheme syntax.
-* Eval and music navigation as currently implemented lack robust constraint checking,
-so running these functions in situations violating their assumptions may have unpredictable results.
+* Currently, there can only be one musical navigation table at a time in a given file buffer. This means that if your project organizes music by instrument rather than by movement (i.e. instead of having music for all parts in `movement1.ily` you have music for all movements in `flute.ily`), music navigation will only work for one movement at a time.
 * The Geiser REPL can make Emacs unresponsive in some situations, most commonly due to very long lines having been printed in the REPL buffer. If this happens, `C-g` once or twice usually will unfreeze the Emacs UI. Clearing the Geiser REPL buffer and then restarting the REPL typically fixes the issue.
 
 ## Relation to lilypond-mode

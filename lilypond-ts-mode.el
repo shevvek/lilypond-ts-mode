@@ -209,9 +209,10 @@ the musical content.
 This variable is a good candidate for .dir-locals.el")
 
 (defun lilypond-ts--refresh-moment-nav (table-alist)
-  (setq lilypond-ts--moment-navigation-table (cdr (assq 'by-moment table-alist)))
   (cl-loop for (file . table) in (cdr (assq 'by-file table-alist))
            do (with-current-buffer (find-file-noselect file)
+                (setq-local lilypond-ts--moment-navigation-table
+                            (cdr (assq 'by-moment table-alist)))
                 (lilypond-ts--put-moment-overlays table))))
 
 (defun lilypond-ts--generate-moment-tables (files var-names)

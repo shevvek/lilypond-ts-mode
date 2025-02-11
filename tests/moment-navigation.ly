@@ -8,6 +8,10 @@ global = {
   s2.*4
 }
 
+X = \relative {
+  c''4 d e d
+}
+
 A = \relative {
   c'4 d e f
   g a b c

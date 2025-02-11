@@ -262,26 +262,31 @@ This variable is a good candidate for .dir-locals.el")
 (defvar lilypond-ts--goal-moment
   nil)
 
-;; Skip nav table columns where current moment is out of bounds
-;; Handle fail to find
 ;; Go to beginning/end of overlay depending on = or < moment
 (defun lilypond-ts-forward-same-moment (&optional n)
   "Move to the same musical moment in the next musical expression. With prefix
 argument N, move that many musical expressions forward or, for negative N,
 backward. If an expression has no music for the exact moment, move to the
-nearest earlier moment. If lilypond-ts--goal-moment is non-nil, use that moment
-instead of the moment at point. When the last music expression is reached, wrap
-around to the first. To use navigation by musical moment, first evaluate the
-buffer using lilypond-ts-eval-buffer."
+nearest earlier moment. Expressions where the moment is out of bounds will be
+skipped. If lilypond-ts--goal-moment is non-nil, use that moment instead of the
+moment at point. When the last music expression is reached, wrap around to the
+first. To use navigation by musical moment, first evaluate the buffer using
+lilypond-ts-eval-buffer."
   (interactive "p")
-  (let* ((pos (point))
-         (this-moment (or lilypond-ts--goal-moment
-                          (get-char-property pos :moment)))
-         (index  (get-char-property pos :index))
-         (dest-index (mod (+ index n)
-                          (length lilypond-ts--moment-navigation-table))))
-    (cl-loop for (moment file ln ch)
-             in (nth dest-index lilypond-ts--moment-navigation-table)
+  (and-let* ((pos (point))
+             (this-moment (or lilypond-ts--goal-moment
+                              (get-char-property pos :moment)))
+             (index (get-char-property pos :index))
+             (nav-table (append (seq-drop lilypond-ts--moment-navigation-table
+                                          index)
+                                (seq-take lilypond-ts--moment-navigation-table
+                                          index)))
+             (bounded-table (seq-filter (lambda (t)
+                                          (and (<= this-moment (caar t))
+                                               (<= (caar (last t)) this-moment)))
+                                        nav-table))
+             (dest-index (mod n (length bounded-table))))
+    (cl-loop for (moment file ln ch) in (nth dest-index bounded-table)
              until (<= moment this-moment)
              finally (lilypond-ts--go-to-loc file ln ch))))
 

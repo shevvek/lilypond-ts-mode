@@ -2,6 +2,9 @@
              (srfi srfi-26)
              (srfi srfi-71))
 
+(define (moment->nav-key m)
+  (exact->inexact (ly:moment-main m)))
+
 ;; Maybe record end moment per Voice
 (define*-public (record-origins-by-moment #:rest musics)
   (let ((origin-alists '()))
@@ -12,16 +15,18 @@
          (listeners
           ((rhythmic-event translator event)
            (and-let* (((not got-event-this-step))
-                      (now (ly:moment-main (ly:context-current-moment ctx)))
+                      (now (moment->nav-key (ly:context-current-moment ctx)))
                       (location (ly:event-property event 'origin #f))
                       (loc-info (ly:input-file-line-char-column location)))
              (set! origin-alist
-                   (acons (exact->inexact now) (take loc-info 3) origin-alist))
+                   (acons now (take loc-info 3) origin-alist))
              (set! got-event-this-step #t))))
          ((stop-translation-timestep translator)
           (set! got-event-this-step #f))
          ((finalize translator)
-          (set! origin-alists (cons origin-alist origin-alists))))))
+          (let ((now (moment->nav-key (ly:context-current-moment ctx))))
+            (set! origin-alists (cons (cons `(,now) origin-alist)
+                                      origin-alists)))))))
 
     (ly:run-translator (make-simultaneous-music
                         (map (lambda (m)
@@ -52,14 +57,21 @@
 (define-public (sort-moment-origin-table origin-alists)
   (let* ((sort-voices (sort-list origin-alists
                                  (lambda (a b)
-                                   (let ((a_ (cdr (last a)))
-                                         (b_ (cdr (last b))))
-                                     (and (equal? (car a_) (car b_))
-                                          (< (cadr a_) (cadr b_)))))))
+                                   ;; Sort by first line of expression
+                                   ;; But only within the same file
+                                   ;; Leave file order unchanged
+                                   (let ((a-beg-loc (cdr (last a)))
+                                         (b-beg-loc (cdr (last b))))
+                                     (and (equal? (car a-beg-loc)
+                                                  (car b-beg-loc))
+                                          (< (cadr a-beg-loc)
+                                             (cadr b-beg-loc)))))))
          (voice-indices (index-map (lambda (i origin-alist)
                                      (map (lambda (elt)
                                             `(,@(cdr elt) ,(car elt) ,i))
-                                          origin-alist))
+                                          ;; Head is just a moment marking
+                                          ;; the end bound of expression
+                                          (cdr origin-alist)))
                                    sort-voices))
          (sort-by-ch (sort-list (concatenate voice-indices)
                                 (comparator-from-key caddr <)))

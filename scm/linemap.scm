@@ -78,10 +78,11 @@ ends (without location). Export the resulting list by calling
 ;; Maybe record end moment per Voice
 (define*-public (record-origins-by-moment #:rest musics)
   (let ((origin-alists '()))
-    (ly:run-translator (make-simultaneous-music
-                        (map (lambda (m)
-                               #{ \killCues \new Staff { #(voicify-music m) } #})
-                             musics))
+    (ly:run-translator ((apply compose toplevel-music-functions)
+                        (make-simultaneous-music
+                         (map (lambda (m)
+                                #{ \killCues \new Staff { #m } #})
+                              musics)))
                        #{
                          \layout {
                            \partCombineListener

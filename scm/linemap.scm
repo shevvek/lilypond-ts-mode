@@ -32,24 +32,36 @@ an alist mapping rhythmic positions to input locations.")
 
 (define-public (Record_locations_translator ctx)
   (let ((origin-alist '())
-        (got-event-this-step #f))
+        (got-event-this-step #f)
+        (busy-until #f))
     (make-translator
      (listeners
       ((rhythmic-event translator event)
-       (and-let* (((not got-event-this-step))
-                  (now (moment->nav-key (ly:context-current-moment ctx)))
-                  (location (ly:event-property event 'origin #f))
-                  (loc-info (ly:input-file-line-char-column location)))
-         (set! origin-alist
-               (acons now (take loc-info 3) origin-alist))
-         (set! got-event-this-step #t))))
+       (and-let* ((location (ly:event-property event 'origin #f))
+                  (now (ly:context-current-moment ctx))
+                  (ev-end (ly:event-property event 'duration ZERO-DURATION))
+                  (new-until (+ now (ly:duration->moment ev-end))))
+         (unless (and busy-until
+                      (ly:moment<? new-until busy-until))
+           (set! busy-until new-until))
+         (unless got-event-this-step
+           (set! origin-alist
+                 (acons (moment->nav-key now)
+                        (take (ly:input-file-line-char-column location) 3)
+                        origin-alist))
+           (set! got-event-this-step #t)))))
      ((stop-translation-timestep translator)
-      (set! got-event-this-step #f))
-     ((finalize translator)
-      (let ((now (moment->nav-key (ly:context-current-moment ctx)))
-            (callback (ly:context-property ctx 'recordLocationsCallback
-                                           (const #f))))
-        (callback (cons `(,now) origin-alist)))))))
+      (and-let* (((pair? origin-alist))
+                 (busy-until)
+                 (now (ly:context-current-moment ctx))
+                 ((or (equal? busy-until now)
+                      (ly:moment<? busy-until now)))
+                 (callback (ly:context-property ctx 'recordLocationsCallback
+                                                (const #f))))
+        (callback (cons `(,(moment->nav-key now)) (list-copy origin-alist)))
+        (set! origin-alist '())
+        (set! busy-until #f))
+      (set! got-event-this-step #f)))))
 
 (ly:register-translator
  Record_locations_translator 'Record_locations_translator

@@ -15,9 +15,20 @@ X = \relative {
 A = \relative {
   c'4 d e f
   g a b c
-  d c b a
-  g f e d
-  c4 e g
+  <<
+    {
+      d e d c
+      b4 c2 b4
+      c4
+    }
+    \\
+    {
+      d4 c b a
+      g f e d
+      c4
+    }
+  >>
+  e4 g
   f a c
   f d b
   g f d

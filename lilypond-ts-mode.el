@@ -584,6 +584,9 @@ of Lilypond."
   `(
     :default-language lilypond
 
+    :feature scheme
+    ((embedded_scheme_text) @lilypond-ts--fontify-scheme)
+
     :feature comment
     ((comment) @font-lock-comment-face)
 
@@ -593,9 +596,6 @@ of Lilypond."
 
     :feature escaped-word
     ((escaped_word) @font-lock-variable-use-face)
-
-    :feature scheme
-    ((embedded_scheme_text) @lilypond-ts--fontify-scheme)
 
     :feature object
     (((symbol) @font-lock-type-face

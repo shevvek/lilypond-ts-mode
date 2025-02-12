@@ -286,11 +286,12 @@ lilypond-ts-eval-buffer."
                                 (seq-take lilypond-ts--moment-navigation-table
                                           index)))
              (bounded-table (seq-filter (lambda (t)
-                                          (and (<= this-moment (caar t))
+                                          (and (< this-moment (caar t))
                                                (<= (caar (last t)) this-moment)))
                                         nav-table))
+             ((< 1 (length bounded-table)))
              (dest-index (mod n (length bounded-table))))
-    (cl-loop for (moment file ln ch) in (nth dest-index bounded-table)
+    (cl-loop for (moment file ln ch) in (cdr (nth dest-index bounded-table))
              until (<= moment this-moment)
              finally (lilypond-ts--go-to-loc file ln ch))))
 

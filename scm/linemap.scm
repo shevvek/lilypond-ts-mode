@@ -80,7 +80,7 @@ ends (without location). Export the resulting list by calling
   (let ((origin-alists '()))
     (ly:run-translator (make-simultaneous-music
                         (map (lambda (m)
-                               #{ \killCues \new Staff { #m } #})
+                               #{ \killCues \new Staff { #(voicify-music m) } #})
                              musics))
                        #{
                          \layout {

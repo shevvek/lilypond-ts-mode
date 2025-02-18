@@ -76,6 +76,43 @@ of context's first rhythmic-event in each timestep, plus the moment the context
 ends (without location). Start a new list if there is a gap in which context has
 no active rhythmic-events.")))
 
+(define ((purify-translators allowed) ctx-def)
+  (let* ((consists (ly:context-def-lookup ctx-def 'consists))
+         (purge-list (lset-difference eq? consists allowed))
+         (mod (ly:make-context-mod (map (lambda (t)
+                                          `(remove ,t)) purge-list))))
+    (ly:context-def-modify ctx-def mod)))
+
+(define (make-minimal-output-def odef)
+  (let ((new-odef (ly:output-def-clone odef))
+        (purify-proc (purify-translators '(Timing_translator
+                                           Mark_tracking_translator
+                                           Record_locations_translator))))
+    (for-each (lambda (ctx-def-pair)
+                (ly:output-def-set-variable! new-odef (car ctx-def-pair)
+                                             (purify-proc (cdr ctx-def-pair))))
+              (ly:output-find-context-def new-odef))
+    new-odef))
+
+(define-public navigation
+  (define-scheme-function (odef)
+    ((ly:output-def? (ly:parser-lookup '$defaultmidi)))
+    (let* ((minimal-clone (make-minimal-output-def odef))
+           (voice-def (ly:output-def-lookup minimal-clone 'Voice))
+           (nav-ctx-mod (ly:make-context-mod
+                         '((consists Record_locations_translator)))))
+      (ly:output-def-set-variable! minimal-clone
+                                   'Voice
+                                   (ly:context-def-modify voice-def
+                                                          nav-ctx-mod))
+      (ly:output-def-set-variable! minimal-clone
+                                   'output-def-kind
+                                   'navigation)
+      ;; At present, translator groups must either be performer or engraver
+      ;; type, and likewise for scores.
+      (ly:expect-warning (G_ "cannot create a zero-track MIDI file"))
+      minimal-clone)))
+
 (define (finalize-score-nav-table nt)
   (uniq-list (sort-list (reverse nt) (lambda (a b)
                                        ;; Sort by first line of expression
@@ -94,16 +131,7 @@ no active rhythmic-events.")))
                              (map (lambda (m)
                                     #{ \killCues \new Staff { #m } #})
                                   musics))))
-             (odef #{
-                     \layout {
-                       \partCombineListener
-                       \context {
-                         \Voice
-                         \consists Record_locations_translator
-                       }
-                     }
-                   #})
-             (translation-done (ly:run-translator nav-sc-music odef))
+             (translation-done (ly:run-translator nav-sc-music (navigation)))
              (score-ctxs (ly:context-children translation-done))
              ((pair? score-ctxs))
              (nav-table (ly:context-property (car score-ctxs)

@@ -88,7 +88,7 @@ no active rhythmic-events.")))
                                               (< (cadr a-beg-loc)
                                                  (cadr b-beg-loc))))))))
 
-(define*-public (record-origins-by-moment #:rest musics)
+(define-public (record-origins-by-moment . musics)
   (and-let* ((nav-sc-music ((apply compose toplevel-music-functions)
                             (make-simultaneous-music
                              (map (lambda (m)
@@ -121,17 +121,22 @@ no active rhythmic-events.")))
         (split-by-car other-keys accum-result)
         accum-result)))
 
-(define-public (sort-moment-origin-table nav-table)
-  (let* ((voice-indices (index-map (lambda (i origin-alist)
-                                     (map (lambda (elt)
-                                            `(,@(cdr elt) ,(car elt) ,i))
-                                          ;; Head is just a moment marking
-                                          ;; the end bound of expression
-                                          (cdr origin-alist)))
-                                   nav-table))
-         (sort-by-ch (sort-list (concatenate voice-indices)
+(define ((distribute-indices . other-indices) voice-index lst)
+  (map (lambda (elt)
+         `(,@(cdr elt) ,(car elt) ,voice-index ,@other-indices))
+       ;; car of a nav segment is just a moment marking the end of a music
+       ;; expression, with no location.
+       (cdr lst)))
+
+(define (sort-by-location combined-nav-data)
+  (let* ((sort-by-ch (sort-list combined-nav-data
                                 (comparator-from-key caddr <)))
-         (sort-by-ln (sort-list sort-by-ch (comparator-from-key cadr <)))
-         (split-by-file (split-by-car sort-by-ln)))
+         (sort-by-ln (sort-list sort-by-ch
+                                (comparator-from-key cadr <))))
+    (split-by-car sort-by-ln)))
+
+(define-public (sort-moment-origin-table nav-table)
+  (let* ((voice-indices (index-map (distribute-indices) nav-table))
+         (split-by-file (sort-by-location (concatenate voice-indices))))
     `((by-file . ,split-by-file)
       (by-moment . ,nav-table))))

@@ -125,17 +125,28 @@ no active rhythmic-events.")))
                                               (< (cadr a-beg-loc)
                                                  (cadr b-beg-loc))))))))
 
-(define-public (record-origins-by-moment . musics)
-  (and-let* ((nav-sc-music ((apply compose toplevel-music-functions)
-                            (make-simultaneous-music
-                             (map (lambda (m)
-                                    #{ \killCues \new Staff { #m } #})
-                                  musics))))
-             (translation-done (ly:run-translator nav-sc-music (navigation)))
+(define-public toplevel-nav-functions
+  (list
+   (ly:music-function-extract (ly:parser-lookup 'killCues))
+   (lambda (music)
+     (music-filter (lambda (m)
+                     (not (music-is-of-type? m 'translator-change-instruction)))
+                   music))))
+
+(define-public (record-nav-data music odef)
+  (and-let* ((nav-music ((apply compose toplevel-nav-functions)
+                         (ly:music-deep-copy music)))
+             (translation-done (ly:run-translator nav-music odef))
+             ;; Retrieving nav data from Score context property via
+             ;; Global ctx post-translation, then run post-processing
+             ;; Before output to a file is directly parallel to the
+             ;; way midi and print output works, but hooking into
+             ;; that system requires adding a new subclass of Music_ouput
              (score-ctxs (ly:context-children translation-done))
              ((pair? score-ctxs))
              (nav-table (ly:context-property (car score-ctxs)
                                              'navigationTable)))
+    (ly:progress "\nExtracting navigation data...")
     (finalize-score-nav-table nav-table)))
 
 (define* (split-by-car l #:optional (accum-result '()))
@@ -162,6 +173,16 @@ no active rhythmic-events.")))
          (sort-by-ln (sort-list sort-by-ch
                                 (comparator-from-key cadr <))))
     (split-by-car sort-by-ln)))
+
+
+;;; Old Emacs lilypond-ts-mode moment nav API
+
+(define-public (record-origins-by-moment . musics)
+  (let ((music ((apply compose toplevel-music-functions)
+                (make-simultaneous-music (map (lambda (m)
+                                                #{ \new Staff { #m } #})
+                                              musics)))))
+    (record-nav-data music (navigation))))
 
 (define-public (sort-moment-origin-table nav-table)
   (let* ((voice-indices (index-map (distribute-indices) nav-table))

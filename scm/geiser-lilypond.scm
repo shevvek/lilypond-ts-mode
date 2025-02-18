@@ -197,4 +197,4 @@ a property expression e.g. Context.ctxProp or [Context.]Grob.grobProp."
                                        key-list?)
                                  (cdr (ly:music-function-signature f))))))
 
-(load-from-path "linemap.scm")
+(load-from-path "navigation.scm")

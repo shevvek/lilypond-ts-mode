@@ -18,7 +18,6 @@
 ;; along with lilypond-ts-mode.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (ice-9 and-let-star)
-             (srfi srfi-26)
              (srfi srfi-71))
 
 (define (moment->nav-key m)
@@ -149,6 +148,14 @@ no active rhythmic-events.")))
     (ly:progress "\nExtracting navigation data...")
     (finalize-score-nav-table nav-table)))
 
+(define (score->nav-table score)
+  (and-let* ((music (ly:score-music score))
+             (odef (find (lambda (o)
+                           (eq? 'navigation
+                                (ly:output-def-lookup o 'output-def-kind)))
+                         (ly:score-output-defs score))))
+    (record-nav-data music odef)))
+
 (define* (split-by-car l #:optional (accum-result '()))
   (let* ((k (caar l))
          (same-key other-keys (partition (lambda (el)
@@ -174,6 +181,47 @@ no active rhythmic-events.")))
                                 (comparator-from-key cadr <))))
     (split-by-car sort-by-ln)))
 
+(define (collate-nav-data nav-tables)
+  (ly:progress "\nCollating navigation data...")
+  (let ((with-indices (map (lambda (score-table)
+                             (index-map (distribute-indices (car score-table))
+                                        (cdr score-table)))
+                           nav-tables)))
+    (sort-by-location (append-map concatenate with-indices))))
+
+(define-public (write-file-to-subdir data name dir ext)
+  (let* ((subdir (string-append (dirname name) "/" dir))
+         (tmp (begin (mkdir-if-not-exist subdir)
+                     (make-tmpfile subdir)))
+         (fname (string-append subdir "/" (basename name) ext)))
+    (write data tmp)
+    (ly:progress "\nConverting to `~a'..." fname)
+    (close-port-rename tmp fname)))
+
+(define-public (make-book-nav-table book)
+  (let* ((book-name ((@@ (lily) get-outfile-name) book))
+         (score-tables (filter-map score->nav-table (ly:book-scores book)))
+         (score-alist (index-map (lambda (j score-table)
+                                   (cons (string->symbol (format #f "~a-~a"
+                                                                 book-name j))
+                                         score-table))
+                                 score-tables))
+         (collate-by-input-file (collate-nav-data score-alist)))
+    (ly:progress "\nExporting navigation data for book `~a'..." book-name)
+    (write-file-to-subdir `((by-score . ,score-alist)
+                            (by-input-file . ,collate-by-input-file))
+                          book-name ".nav" ".l")))
+
+;; Calling print-book-with-defaults first, then make-book-nav-table using
+;; current-outfile-name, would give equivalent output and avoid minor code
+;; duplication, but really navigation should run first since it should be
+;; fast compared to typesetting.
+(define default-toplevel-book-handler
+  (lambda (book)
+    (let ((paper (ly:parser-lookup '$defaultpaper))
+          (layout (ly:parser-lookup '$defaultlayout)))
+      (make-book-nav-table book)
+      (ly:book-process book paper layout current-outfile-name))))
 
 ;;; Old Emacs lilypond-ts-mode moment nav API
 

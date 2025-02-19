@@ -158,10 +158,11 @@ text of the next symbol after node."
   (save-excursion
     (cl-loop with tick = (setq-local lilypond-ts--nav-update-tick
                                      (1+ lilypond-ts--nav-update-tick))
-             for (ln ch moment index) in moment-location-table
+             for (ln ch moment index score-id) in moment-location-table
              and last-pt = nil then (point)
              and last-moment = nil then moment
              and last-index = nil then index
+             and last-score-id = nil then score-id
              and parent-end = nil then (treesit-node-end
                                         (treesit-parent-until
                                          (treesit-node-at (point)) 'list))
@@ -171,7 +172,8 @@ text of the next symbol after node."
                                                           parent-end)
                                              tick
                                              :moment last-moment
-                                             :index last-index)
+                                             :index last-index
+                                             :score-id last-score-id)
              finally
              (lilypond-ts--update-overlay (point)
                                           (treesit-node-end
@@ -179,89 +181,48 @@ text of the next symbol after node."
                                             (treesit-node-at (point)) 'list))
                                           tick
                                           :moment moment
-                                          :index index)
+                                          :index index
+                                          :score-id score-id)
+             ;; To do: only remove outdated if same score-id
              finally (lilypond-ts--cleanup-overlays tick nil nil :moment))))
 
-(defvar lilypond-ts--moment-navigation-table
-  nil)
+(defvar-local lilypond-ts--moment-navigation-table
+    nil)
 
-(defvar lilypond-ts-moment-eval-config
+(defvar lilypond-ts--watchers
   nil
-  "List controlling moment navigation refresh. Each element is of the form:
-
-((<file eval redirections>) . (:include|:exclude <moment navigation variables>))
-
-When eval-buffer is run on any of the files in <file eval redirections>, run
-eval-buffer on the first file listed instead. Generally this is because it
-\\includes the others.
-
-The cdr list containing <moment navigation variables> can be omitted entirely,
-in which case moment navigation data is generated for all variables of type
-ly:music? defined in any file within <file eval redirections>.
-
-The variables named in <moment navigation variables> will be excluded when
-generating and refreshing moment navigation data if preceded by :exclude. This
-is useful for example if an input file contains a lyrics variable.
-
-If <moment navigation variables> is instead preceded instead by :include, then
-only the variables named will be used for moment navigation. This is useful for
-example if an input file includes a large number of custom command definitions
-that are music expressions, alongside a smaller number of variables containing
-the musical content.
-
-This variable is a good candidate for .dir-locals.el")
+  "Internal list tracking active file notification watchers belonging to
+lilypond-ts-mode.")
 
 (defun lilypond-ts--refresh-moment-nav (table-alist)
-  (cl-loop for (file . table) in (cdr (assq 'by-file table-alist))
+  (cl-loop for (file . table) in (alist-get 'by-input-file table-alist)
            do (with-current-buffer (find-file-noselect file)
-                (setq-local lilypond-ts--moment-navigation-table
-                            (cdr (assq 'by-moment table-alist)))
+                (cl-loop for (score-id . table) in (alist-get 'by-score table-alist)
+                         do (setf (alist-get score-id
+                                             lilypond-ts--moment-navigation-table)
+                                  table))
                 (lilypond-ts--put-moment-overlays table))))
 
-(defun lilypond-ts--generate-moment-tables (files var-names)
-  (dolist (file files)
-    (lilypond-ts-eval-buffer (find-file-noselect file)))
-  (geiser-eval--send
-   `(:eval (sort-moment-origin-table (record-origins-by-moment ,@var-names)))
-   (lambda (s)
-     (lilypond-ts--refresh-moment-nav (geiser-eval--retort-result s)))))
+(defun lilypond-ts--read-nav-data (fname)
+  (let ((data-alist (with-temp-buffer
+                      (insert-file-contents fname)
+                      (read (current-buffer)))))
+    (lilypond-ts--refresh-moment-nav data-alist)))
 
-(defun lilypond-ts--list-defuns (filename)
-  (with-current-buffer (find-file-noselect filename)
-    (let* ((defuns (apply #'append
-                          (treesit-induce-sparse-tree (treesit-buffer-root-node)
-                                                      'defun
-                                                      treesit-defun-name-function
-                                                      1)))
-           (defun-syms (mapcar #'intern defuns)))
-      (geiser-eval--send/result
-       `(:eval (filter (compose ly:music? ly:parser-lookup) ',defun-syms))))))
-
-
-;; To do: what if not all files to be evaled are included in (caar config)?
-;; Print progress messages
-;; Refactor nav refresh into async callback
-(defun lilypond-ts-eval-buffer-and-refresh-nav (&optional buffer)
-  (interactive)
-  (let* ((this-file (buffer-file-name buffer))
-         (config (assoc this-file lilypond-ts-moment-eval-config
-                        (lambda (key this)
-                          (seq-contains-p key this #'file-equal-p))))
-         (e (lilypond-ts-eval-buffer (find-file-noselect (or (caar config)
-                                                             this-file))))
-         (all-defuns (cond
-                      ((eq :include (cadr config))
-                       (cddr config))
-                      (config
-                       (mapcan #'lilypond-ts--list-defuns (car config)))
-                      (t (lilypond-ts--list-defuns this-file))))
-         (excludes (when (eq :exclude (cadr config))
-                     (cddr config)))
-         (nav-defuns (seq-difference all-defuns excludes)))
-    (geiser-eval--send
-     `(:eval (sort-moment-origin-table (record-origins-by-moment ,@nav-defuns)))
-     (lambda (s)
-       (lilypond-ts--refresh-moment-nav (geiser-eval--retort-result s))))))
+(defun lilypond-ts--add-nav-watcher (&optional fname)
+  (let ((dir (file-name-concat (file-name-directory (or fname
+                                                        (buffer-file-name)))
+                               ".nav")))
+    (unless (assoc dir lilypond-ts--watchers)
+      (push
+       (cons dir
+             (file-notify-add-watch
+              dir '(change)
+              (lambda (ev)
+                (let ((ev-file (car (last ev))))
+                  (when (string-equal "l" (file-name-extension ev-file))
+                    (lilypond-ts--read-nav-data ev-file))))))
+       lilypond-ts--watchers))))
 
 (defvar lilypond-ts--goal-moment
   nil)
@@ -280,15 +241,16 @@ lilypond-ts-eval-buffer."
   (and-let* ((pos (point))
              (this-moment (or lilypond-ts--goal-moment
                               (get-char-property pos :moment)))
+             (score-id (get-char-property pos :score-id))
              (index (get-char-property pos :index))
-             (nav-table (append (seq-drop lilypond-ts--moment-navigation-table
-                                          index)
-                                (seq-take lilypond-ts--moment-navigation-table
-                                          index)))
+             (nav-table (alist-get score-id
+                                   lilypond-ts--moment-navigation-table))
+             (rotated-table (append (seq-drop nav-table index)
+                                    (seq-take nav-table index)))
              (bounded-table (seq-filter (lambda (t)
                                           (and (< this-moment (caar t))
                                                (<= (caar (last t)) this-moment)))
-                                        nav-table))
+                                        rotated-table))
              ((< 1 (length bounded-table)))
              (dest-index (mod n (length bounded-table))))
     (cl-loop for (moment file ln ch) in (cdr (nth dest-index bounded-table))
@@ -324,17 +286,21 @@ expression. With prefix argument N, do it N times. For negative arg -N, move
 backwards. To use navigation by musical moment, first evaluate the buffer using
 lilypond-ts-eval-buffer."
   (interactive "p")
-  (let* ((pos (point))
-         (this-moment (get-char-property pos :moment))
-         (voice-index (get-char-property pos :index))
-         (my-table (nth voice-index lilypond-ts--moment-navigation-table))
-         (moment-index (seq-position my-table this-moment (lambda (elt now)
-                                                            (= (car elt) now))))
-         ;; Subtract n because the moment list is backwards
-         (dest-index (- moment-index n))
-         (max-index (1- (length my-table)))
-         (dest-loc (nth (if (< max-index dest-index) max-index dest-index)
-                        my-table)))
+  (and-let* ((pos (point))
+             (this-moment (get-char-property pos :moment))
+             (score-id (get-char-property pos :score-id))
+             (voice-index (get-char-property pos :index))
+             (score-table (alist-get score-id
+                                     lilypond-ts--moment-navigation-table))
+             (my-table (nth voice-index score-table))
+             (moment-index (seq-position my-table this-moment
+                                         (lambda (elt now)
+                                           (= (car elt) now))))
+             ;; Subtract n because the moment list is backwards
+             (dest-index (- moment-index n))
+             (max-index (1- (length my-table)))
+             (dest-loc (nth (if (< max-index dest-index) max-index dest-index)
+                            my-table)))
     (apply #'lilypond-ts--go-to-loc (cdr dest-loc))))
 
 (defsubst lilypond-ts-backward-moment (&optional n)
@@ -917,14 +883,11 @@ of Lilypond."
 
 (defvar lilypond-ts-mode-map (make-sparse-keymap))
 (define-key lilypond-ts-mode-map
-            [remap eval-buffer] #'lilypond-ts-eval-buffer-and-refresh-nav)
+            [remap eval-buffer] #'lilypond-ts-eval-buffer)
 (define-key lilypond-ts-mode-map
-            [remap geiser-eval-buffer]
-            #'lilypond-ts-eval-buffer-and-refresh-nav)
+            [remap geiser-eval-buffer] #'lilypond-ts-eval-buffer)
 (define-key lilypond-ts-mode-map
-            (kbd "C-c C-b") #'lilypond-ts-eval-buffer-and-refresh-nav)
-(define-key lilypond-ts-mode-map
-            (kbd "C-c M-b") #'lilypond-ts-eval-buffer)
+            (kbd "C-c C-b") #'lilypond-ts-eval-buffer)
 (define-key lilypond-ts-mode-map
             [remap eval-region] #'lilypond-ts-eval-region)
 (define-key lilypond-ts-mode-map
@@ -964,6 +927,7 @@ of Lilypond."
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
+    (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--add-nav-watcher)
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1)
       (add-hook 'completion-at-point-functions

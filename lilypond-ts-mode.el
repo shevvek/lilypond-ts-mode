@@ -215,16 +215,23 @@ lilypond-ts-mode.")
       (message "Reloading navigation data from changed file: %s" ev-file)
       (lilypond-ts--read-nav-data ev-file))))
 
-(defun lilypond-ts--add-nav-watcher (&optional fname)
+(defun lilypond-ts--init-nav-watcher (&optional fname)
+  "Check whether there is already an entry in lilypond-ts--watchers for a .nav
+subdirectory in the same folder as the current buffer, or the same folder as
+optional arg FNAME. If there is not, read nav data from any .l files in that
+.nav folder and initialize a new watcher for that .nav folder, adding it to
+lilypond-ts--watchers."
   (let ((dir (file-name-concat (file-name-directory (or fname
                                                         (buffer-file-name)))
                                ".nav")))
     (unless (assoc dir lilypond-ts--watchers)
-      (push
-       (cons dir
-             (file-notify-add-watch dir '(change)
-                                    #'lilypond-ts--nav-watcher-callback))
-       lilypond-ts--watchers))))
+      (when (file-exists-p dir)
+        (mapc #'lilypond-ts--read-nav-data
+              (directory-files dir t "^.*\\.l$")))
+      (push (cons dir
+                  (file-notify-add-watch dir '(change)
+                                         #'lilypond-ts--nav-watcher-callback))
+            lilypond-ts--watchers))))
 
 (defvar lilypond-ts--goal-moment
   nil)
@@ -929,7 +936,7 @@ of Lilypond."
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
-    (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--add-nav-watcher)
+    (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1)
       (add-hook 'completion-at-point-functions

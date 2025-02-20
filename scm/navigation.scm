@@ -1,4 +1,4 @@
-;;; linemap.scm --- Moment-location mapping for LilyPond
+;;; navigation.scm --- Moment-location mapping for LilyPond
 
 ;; Copyright (c) 2025 Saul James Tobin
 
@@ -100,13 +100,10 @@ no active rhythmic-events.")))
            (voice-def (ly:output-def-lookup minimal-clone 'Voice))
            (nav-ctx-mod (ly:make-context-mod
                          '((consists Record_locations_translator)))))
-      (ly:output-def-set-variable! minimal-clone
-                                   'Voice
+      (ly:output-def-set-variable! minimal-clone 'Voice
                                    (ly:context-def-modify voice-def
                                                           nav-ctx-mod))
-      (ly:output-def-set-variable! minimal-clone
-                                   'output-def-kind
-                                   'navigation)
+      (ly:output-def-set-variable! minimal-clone 'output-def-kind 'navigation)
       ;; At present, translator groups must either be performer or engraver
       ;; type, and likewise for scores.
       (ly:expect-warning (G_ "cannot create a zero-track MIDI file"))

@@ -123,18 +123,45 @@ no active rhythmic-events.")))
                                                       (car b-beg-loc))
                                               (< (cadr a-beg-loc)
                                                  (cadr b-beg-loc))))))))
+(define*-public (bottom-context-music? m #:optional odef)
+  (and-let* (((ly:music? m))
+             ((music-is-of-type? m 'context-specification))
+             (odef (if (ly:output-def? odef) odef
+                       (ly:parser-lookup '$defaultlayout)))
+             (ctx-type (ly:music-property m 'context-type))
+             (bottom-names (map car (ly:output-find-context-def odef 'Bottom)))
+             ((or (eq? ctx-type 'Bottom)
+                  (memq ctx-type bottom-names))))))
+
+(define*-public (voicify-all-simultaneous m #:optional odef)
+  (music-map (lambda (s)
+               (if (music-is-of-type? s 'simultaneous-music)
+                   (map-some-music (lambda (elt)
+                                     (cond
+                                      ((music-is-of-type? elt 'sequential-music)
+                                       (context-spec-music elt 'Bottom
+                                                           (symbol->string
+                                                            (gensym))))
+                                      ((bottom-context-music? elt odef)
+                                       elt)
+                                      (else #f)))
+                                   s)
+                   s))
+             m))
 
 (define-public toplevel-nav-functions
   (list
    (ly:music-function-extract (ly:parser-lookup 'killCues))
    (lambda (music)
-     (music-filter (lambda (m)
-                     (not (music-is-of-type? m 'translator-change-instruction)))
-                   music))))
+     (music-filter (negate (music-type-predicate 'translator-change-instruction))
+                   music))
+   ;; must be last so that when the list is composed, optional odef arg accepted
+   voicify-all-simultaneous))
 
 (define-public (record-nav-data music odef)
   (and-let* ((nav-music ((apply compose toplevel-nav-functions)
-                         (ly:music-deep-copy music)))
+                         (ly:music-deep-copy music)
+                         odef))
              (translation-done (ly:run-translator nav-music odef))
              ;; Retrieving nav data from Score context property via
              ;; Global ctx post-translation, then run post-processing

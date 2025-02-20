@@ -209,6 +209,12 @@ lilypond-ts-mode.")
                       (read (current-buffer)))))
     (lilypond-ts--refresh-moment-nav data-alist)))
 
+(defun lilypond-ts--nav-watcher-callback (ev)
+  (let ((ev-file (car (last ev))))
+    (when (string-equal "l" (file-name-extension ev-file))
+      (message "Reloading navigation data from changed file: %s" ev-file)
+      (lilypond-ts--read-nav-data ev-file))))
+
 (defun lilypond-ts--add-nav-watcher (&optional fname)
   (let ((dir (file-name-concat (file-name-directory (or fname
                                                         (buffer-file-name)))
@@ -216,12 +222,8 @@ lilypond-ts-mode.")
     (unless (assoc dir lilypond-ts--watchers)
       (push
        (cons dir
-             (file-notify-add-watch
-              dir '(change)
-              (lambda (ev)
-                (let ((ev-file (car (last ev))))
-                  (when (string-equal "l" (file-name-extension ev-file))
-                    (lilypond-ts--read-nav-data ev-file))))))
+             (file-notify-add-watch dir '(change)
+                                    #'lilypond-ts--nav-watcher-callback))
        lilypond-ts--watchers))))
 
 (defvar lilypond-ts--goal-moment

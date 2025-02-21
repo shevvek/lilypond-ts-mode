@@ -81,7 +81,8 @@ all properties in KEYS."
   "Open FILE and move point to line LN character CH."
   (when file (find-file file))
   (forward-line (- ln (line-number-at-pos (point))))
-  (forward-char ch))
+  (forward-char ch)
+  (point))
 
 (defsubst lilypond-ts--node-preceded-by-whitespace (node)
   (string-match-p "\\s-" (string (char-before (treesit-node-start node)))))
@@ -159,39 +160,28 @@ text of the next symbol after node."
 
 (defvar lilypond-ts--nav-update-tick 0)
 
-(defun lilypond-ts--put-moment-overlays (moment-location-table)
+(defun lilypond-ts--put-moment-overlays (nav-table)
   (save-excursion
-    (cl-loop with tick = (setq-local lilypond-ts--nav-update-tick
-                                     (1+ lilypond-ts--nav-update-tick))
-             for (ln ch moment index score-id) in moment-location-table
-             and last-pt = nil then (point)
-             and last-moment = nil then moment
-             and last-index = nil then index
-             and last-score-id = nil then score-id
-             and parent-end = nil then (treesit-node-end
-                                        (treesit-parent-until
-                                         (treesit-node-at (point)) 'list))
-             do (lilypond-ts--go-to-loc nil ln ch)
-             when last-pt
-             do (lilypond-ts--update-overlay tick last-pt (min (1- (point))
-                                                               parent-end)
-                                             :moment last-moment
-                                             :index last-index
-                                             :score-id last-score-id)
-             collect score-id into score-ids
-             finally
-             (lilypond-ts--update-overlay tick (point)
-                                          (treesit-node-end
-                                           (treesit-parent-until
-                                            (treesit-node-at (point)) 'list))
-                                          :moment moment
-                                          :index index
-                                          :score-id score-id)
-             finally (mapc (lambda (id)
-                             (lilypond-ts--cleanup-overlays tick nil nil
-                                                            :moment :index
-                                                            :score-id id))
-                           score-ids))))
+    (cl-loop with tick = (setq lilypond-ts--nav-update-tick
+                               (1+ lilypond-ts--nav-update-tick))
+             for ((ln1 ch1 moment index score-id) (ln2 ch2)) on nav-table
+             for last-pt = (lilypond-ts--go-to-loc nil ln1 ch1) then (point)
+             for parent-end = (treesit-node-end
+                               (treesit-parent-until
+                                (treesit-node-at (point)) 'list))
+             when ln2 do (lilypond-ts--go-to-loc nil ln2 ch2)
+             do (lilypond-ts--update-overlay tick last-pt
+                                             (if (< last-pt (point) parent-end)
+                                                 (point)
+                                               parent-end)
+                                             :moment moment
+                                             :index index
+                                             :score-id score-id)
+             unless (memq score-id score-ids) collect score-id into score-ids
+             finally (dolist (id score-ids)
+                       (lilypond-ts--cleanup-overlays tick nil nil
+                                                      :moment :index
+                                                      :score-id id)))))
 
 (defvar lilypond-ts--moment-navigation-table
   nil)

@@ -232,8 +232,10 @@ no active rhythmic-events.")))
              ((pair? score-tables))
              (score-alist (index-map (lambda (j score-table)
                                        (cons (string->symbol
-                                              (format #f "~a-~a"
-                                                      book-name j))
+                                              (format #f "~a-~d-~d"
+                                                      book-name
+                                                      (hash input-file-name 999)
+                                                      j))
                                              score-table))
                                      score-tables))
              (collate-by-input-file (collate-nav-data score-alist)))

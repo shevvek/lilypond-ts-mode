@@ -190,8 +190,8 @@ text of the next symbol after node."
                                                             :score-id id))
                            score-ids))))
 
-(defvar-local lilypond-ts--moment-navigation-table
-    nil)
+(defvar lilypond-ts--moment-navigation-table
+  nil)
 
 (defvar lilypond-ts--watchers
   nil
@@ -201,11 +201,11 @@ lilypond-ts-mode.")
 (defun lilypond-ts--refresh-moment-nav (table-alist)
   (cl-loop for (file . table) in (alist-get 'by-input-file table-alist)
            do (with-current-buffer (find-file-noselect file)
-                (cl-loop for (score-id . table) in (alist-get 'by-score table-alist)
-                         do (setf (alist-get score-id
-                                             lilypond-ts--moment-navigation-table)
-                                  table))
-                (lilypond-ts--put-moment-overlays table))))
+                (lilypond-ts--put-moment-overlays table)))
+  (cl-loop for (score-id . table) in (alist-get 'by-score table-alist)
+           do (setf (alist-get score-id
+                               lilypond-ts--moment-navigation-table)
+                    table)))
 
 (defun lilypond-ts--read-nav-data (fname)
   (let ((data-alist (with-temp-buffer

@@ -46,7 +46,7 @@
   (cl-loop for (key value) on plist by #'cddr
            always (equal (overlay-get ov key) value)))
 
-(defun lilypond-ts--update-overlay (beg end tick &rest props)
+(defun lilypond-ts--update-overlay (tick beg end &rest props)
   "Ensure there is an overlay bounded by BEG and END with its :update-tick set
 to TICK and properties PROPS. If there is an existing overlay in the interval
 BEG to END with all properties and values in PROPS, move it and update its
@@ -68,8 +68,10 @@ all properties in KEYS."
   (cl-loop for ov being the overlays
            from (or beg (point-min)) to (or end (point-max))
            for props = (overlay-properties ov)
+           for old-tick = (plist-get props :update-tick)
            when (and (not (seq-difference keys props))
-                     (< (plist-get props :update-tick) tick))
+                     (number-or-marker-p old-tick)
+                     (< old-tick tick))
            do (delete-overlay ov)))
 
 (defun lilypond-ts--go-to-loc (file ln ch)
@@ -168,23 +170,25 @@ text of the next symbol after node."
                                          (treesit-node-at (point)) 'list))
              do (lilypond-ts--go-to-loc nil ln ch)
              when last-pt
-             do (lilypond-ts--update-overlay last-pt (min (1- (point))
-                                                          parent-end)
-                                             tick
+             do (lilypond-ts--update-overlay tick last-pt (min (1- (point))
+                                                               parent-end)
                                              :moment last-moment
                                              :index last-index
                                              :score-id last-score-id)
+             collect score-id into score-ids
              finally
-             (lilypond-ts--update-overlay (point)
+             (lilypond-ts--update-overlay tick (point)
                                           (treesit-node-end
                                            (treesit-parent-until
                                             (treesit-node-at (point)) 'list))
-                                          tick
                                           :moment moment
                                           :index index
                                           :score-id score-id)
-             ;; To do: only remove outdated if same score-id
-             finally (lilypond-ts--cleanup-overlays tick nil nil :moment))))
+             finally (mapc (lambda (id)
+                             (lilypond-ts--cleanup-overlays tick nil nil
+                                                            :moment :index
+                                                            :score-id id))
+                           score-ids))))
 
 (defvar-local lilypond-ts--moment-navigation-table
     nil)

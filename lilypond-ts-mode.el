@@ -233,7 +233,7 @@ lilypond-ts--watchers."
                                          #'lilypond-ts--nav-watcher-callback))
             lilypond-ts--watchers))))
 
-(defvar lilypond-ts--goal-moment
+(defvar lilypond-ts--goal-moments
   nil)
 
 ;; Go to beginning/end of overlay depending on = or < moment
@@ -248,9 +248,9 @@ first. To use navigation by musical moment, first evaluate the buffer using
 lilypond-ts-eval-buffer."
   (interactive "p")
   (and-let* ((pos (point))
-             (this-moment (or lilypond-ts--goal-moment
-                              (get-char-property pos :moment)))
              (score-id (get-char-property pos :score-id))
+             (this-moment (or (alist-get score-id lilypond-ts--goal-moments)
+                              (get-char-property pos :moment)))
              (index (get-char-property pos :index))
              (nav-table (alist-get score-id
                                    lilypond-ts--moment-navigation-table))
@@ -284,10 +284,9 @@ to cycle through all music expressions in relation to the same moment, instead
 of drifting away from the starting moment whenever an expression lacks music at
 the exact same moment."
   (interactive "P")
-  (if unset
-      (setq lilypond-ts--goal-moment nil)
-    (setq lilypond-ts--goal-moment
-          (get-char-property (point) :moment))))
+  (when-let ((score-id (get-char-property (point) :score-id)))
+    (setf (alist-get score-id lilypond-ts--goal-moments)
+          (unless unset (get-char-property (point) :moment)))))
 
 (defun lilypond-ts-forward-moment (&optional n)
   "Move forward to the next musical moment after point in the current music

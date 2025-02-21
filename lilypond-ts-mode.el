@@ -58,7 +58,10 @@ BEG to END with all properties and values in PROPS, move it and update its
         (move-overlay overlay beg end)
       (setq overlay (make-overlay beg end))
       (cl-loop for (key value) on props by #'cddr
-               do (overlay-put overlay key value)))
+               do (overlay-put overlay key value)
+               collect key into keys
+               finally (apply #'lilypond-ts--cleanup-overlays
+                              tick beg end keys)))
     (overlay-put overlay :update-tick tick)))
 
 (defun lilypond-ts--cleanup-overlays (tick &optional beg end &rest keys)

@@ -160,6 +160,32 @@ text of the next symbol after node."
 
 (defvar lilypond-ts--nav-update-tick 0)
 
+(defvar lilypond-ts--watchers nil
+  "Internal list tracking active file notification watchers belonging to
+lilypond-ts-mode.")
+
+(defvar lilypond-ts--moment-navigation-table nil
+  "Alist storing the moment navigation table for each score-id. Each table is a
+list of alists:
+
+(((moment<final> . nil)
+  (moment<n>     . (filename line character))
+  (moment<n-1>   . (filename line character))
+  ...
+  (moment<0>     . (filename line character)))
+ ...)
+
+Each element alist represents one music expression available to cycle via
+forward/backward same-moment, mapping the musical timing of every rhythmic event
+within that expression, in reverse order, to the corresponding input location.
+The car of each alist records the end of the last note or rest in the expression,
+for purposes of bounds checking. The alists are sorted by the locations of their
+first moments, i.e. their last elements, in order to cycle through expressions
+in the order their definitions appear in code.")
+
+(defvar lilypond-ts--goal-moments nil
+  "Alist storing the goal moment for each score-id.")
+
 (defun lilypond-ts--put-moment-overlays (nav-table)
   (save-excursion
     (cl-loop with tick = (setq lilypond-ts--nav-update-tick
@@ -182,14 +208,6 @@ text of the next symbol after node."
                        (lilypond-ts--cleanup-overlays tick nil nil
                                                       :moment :index
                                                       :score-id id)))))
-
-(defvar lilypond-ts--moment-navigation-table
-  nil)
-
-(defvar lilypond-ts--watchers
-  nil
-  "Internal list tracking active file notification watchers belonging to
-lilypond-ts-mode.")
 
 (defun lilypond-ts--refresh-moment-nav (table-alist)
   (cl-loop for (file . table) in (alist-get 'by-input-file table-alist)
@@ -230,19 +248,15 @@ lilypond-ts--watchers."
                                          #'lilypond-ts--nav-watcher-callback))
             lilypond-ts--watchers))))
 
-(defvar lilypond-ts--goal-moments
-  nil)
-
 ;; Go to beginning/end of overlay depending on = or < moment
 (defun lilypond-ts-forward-same-moment (&optional n)
-  "Move to the same musical moment in the next musical expression. With prefix
-argument N, move that many musical expressions forward or, for negative N,
-backward. If an expression has no music for the exact moment, move to the
-nearest earlier moment. Expressions where the moment is out of bounds will be
-skipped. If lilypond-ts--goal-moment is non-nil, use that moment instead of the
-moment at point. When the last music expression is reached, wrap around to the
-first. To use navigation by musical moment, first evaluate the buffer using
-lilypond-ts-eval-buffer."
+  "Move to the same musical moment in the next musical expression belonging to
+the same score-id. With prefix argument N, move that many musical expressions
+forward or, for negative N, backward. If an expression has no music for the exact
+moment, move to the nearest earlier moment. Expressions where the moment is out
+of bounds will be skipped. If lilypond-ts--goal-moments has a non-nil value for
+this score-id, use that moment instead of the moment at point. When the last
+music expression is reached, wrap around to the first."
   (interactive "p")
   (and-let* ((pos (point))
              (score-id (get-char-property pos :score-id))
@@ -267,19 +281,18 @@ lilypond-ts-eval-buffer."
   "Move to the same musical moment in the previous musical expression. With
 prefix argument N, move that many musical expressions backward or, for negative
 N, forward. If an expression has no music for the exact moment, move to the
-nearest earlier moment. If lilypond-ts--goal-moment is non-nil, use that moment
-instead of the moment at point. When the last music expression is reached, wrap
-around to the first. To use navigation by musical moment, first evaluate the
-buffer using lilypond-ts-eval-buffer."
+nearest earlier moment. If lilypond-ts--goal-moments has a non-nil value for
+this score-id, use that moment instead of the moment at point. When the last
+music expression is reached, wrap around to the first."
   (interactive "p")
   (lilypond-ts-forward-same-moment (- n)))
 
 (defun lilypond-ts-set-goal-moment (&optional unset)
-  "Set lilypond-ts--goal-moment to the moment at point. With prefix argument
-UNSET, set it to nil. This allows forward-same-moment and backward-same-moment
-to cycle through all music expressions in relation to the same moment, instead
-of drifting away from the starting moment whenever an expression lacks music at
-the exact same moment."
+  "Update the entry in lilypond-ts--goal-moments for the :score-id at point to
+the value of :moment at point, or with prefix argument UNSET to nil. This allows
+forward-same-moment and backward-same-moment to cycle through all music
+expressions in relation to the same moment, instead of drifting away from the
+starting moment whenever an expression lacks music at the exact same moment."
   (interactive "P")
   (when-let ((score-id (get-char-property (point) :score-id)))
     (setf (alist-get score-id lilypond-ts--goal-moments)
@@ -288,8 +301,7 @@ the exact same moment."
 (defun lilypond-ts-forward-moment (&optional n)
   "Move forward to the next musical moment after point in the current music
 expression. With prefix argument N, do it N times. For negative arg -N, move
-backwards. To use navigation by musical moment, first evaluate the buffer using
-lilypond-ts-eval-buffer."
+backwards."
   (interactive "p")
   (and-let* ((pos (point))
              (this-moment (get-char-property pos :moment))
@@ -311,8 +323,7 @@ lilypond-ts-eval-buffer."
 (defsubst lilypond-ts-backward-moment (&optional n)
   "Move backward to the next musical moment before point in the current music
 expression. With prefix argument N, do it N times. For negative arg -N, move
-forwards. To use navigation by musical moment, first evaluate the buffer using
-lilypond-ts-eval-buffer."
+forwards."
   (interactive "p")
   (lilypond-ts-forward-moment (- n)))
 

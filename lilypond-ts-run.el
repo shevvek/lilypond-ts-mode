@@ -41,7 +41,10 @@
     (and (string-match version-rx version-str)
          (match-string 1 version-str))))
 
-(defvar lilypond-ts--lily-installs-alist nil)
+(define-multisession-variable
+  lilypond-ts--lily-installs-alist nil
+  "All LilyPond installations found on the system, indexed in order by version."
+  :package "lilypond-ts")
 
 (defun lilypond-ts--index-lily-install (bin-path version-str)
   (when-let* ((lily-version (lilypond-ts--match-version "GNU LilyPond"
@@ -49,7 +52,8 @@
               (guile-version (lilypond-ts--match-version "Guile"
                                                          version-str))
               (version-dups (cl-count lily-version
-                                      lilypond-ts--lily-installs-alist
+                                      (multisession-value
+                                       lilypond-ts--lily-installs-alist)
                                       :key (lambda (v)
                                              (string-trim-right (car v)
                                                                 "[^0-9.]*"))
@@ -61,16 +65,20 @@
                              ;; versions will work correctly
                              (format "%s-%c" lily-version
                                      (+ ?a version-dups -1)))))
-    (setq lilypond-ts--lily-installs-alist
-          (cl-merge 'list lilypond-ts--lily-installs-alist
+    (setf (multisession-value lilypond-ts--lily-installs-alist)
+          (cl-merge 'list (multisession-value lilypond-ts--lily-installs-alist)
                     `((,version-key ,bin-path :guile-version ,guile-version))
                     #'version< :key #'car))))
 
-(defun lilypond-ts--find-installs ()
+(defun lilypond-ts--find-installs (&optional reset)
+  (interactive "P")
+  (when reset
+    (setf (multisession-value lilypond-ts--lily-installs-alist) nil))
   (dolist (dir lilypond-ts--search-path)
     (dolist (bin (directory-files-recursively dir lilypond-ts--bin-regex nil t))
       (when-let* (((file-executable-p bin))
-                  ((not (cl-rassoc bin lilypond-ts--lily-installs-alist
+                  ((not (cl-rassoc bin (multisession-value
+                                        lilypond-ts--lily-installs-alist)
                                    :key #'car :test #'file-equal-p))))
         (make-process :name "lilypond"
                       :command (list bin "--version")
@@ -81,4 +89,4 @@
 (defsubst lilypond-ts--closest-compatible-lily (ver-str)
   (cl-assoc-if (lambda (v)
                  (version<= ver-str v))
-               lilypond-ts--lily-installs-alist))
+               (multisession-value lilypond-ts--lily-installs-alist)))

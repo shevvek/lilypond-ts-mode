@@ -41,27 +41,44 @@
     (and (string-match version-rx version-str)
          (match-string 1 version-str))))
 
-(defvar lilypond-ts--lily-install-list nil)
+(defvar lilypond-ts--lily-installs-alist nil)
 
-(defsubst lilypond-ts--version-string-to-list (vstr)
-  (mapcar #'string-to-number (split-string vstr "\\." t)))
+(defun lilypond-ts--index-lily-install (bin-path version-str)
+  (when-let* ((lily-version (lilypond-ts--match-version "GNU LilyPond"
+                                                        version-str))
+              (guile-version (lilypond-ts--match-version "Guile"
+                                                         version-str))
+              (version-dups (cl-count lily-version
+                                      lilypond-ts--lily-installs-alist
+                                      :key (lambda (v)
+                                             (string-trim-right (car v)
+                                                                "[^0-9.]*"))
+                                      :test #'version=))
+              (version-key (if (= 0 version-dups)
+                               lily-version
+                             ;; with version< 2.2-1 < 2.2 < 2.2-a
+                             ;; by using letters, comparison against lily file
+                             ;; versions will work correctly
+                             (format "%s-%c" lily-version
+                                     (+ ?a version-dups -1)))))
+    (setq lilypond-ts--lily-installs-alist
+          (cl-merge 'list lilypond-ts--lily-installs-alist
+                    `((,version-key ,bin-path :guile-version ,guile-version))
+                    #'version< :key #'car))))
 
 (defun lilypond-ts--find-installs ()
   (dolist (dir lilypond-ts--search-path)
     (dolist (bin (directory-files-recursively dir lilypond-ts--bin-regex nil t))
-      (when-let* ((version-str (car (ignore-error file-error
-                                      (process-lines bin "--version"))))
-                  (lily-version (lilypond-ts--match-version "GNU LilyPond"
-                                                            version-str))
-                  (guile-version (lilypond-ts--match-version "Guile"
-                                                             version-str)))
-        (add-to-list 'lilypond-ts--lily-install-list
-                     `( :lily-cmd ,bin
-                        :lily-version ,lily-version
-                        :guile-version ,guile-version)))))
-  (sort lilypond-ts--lily-install-list
-        :key (lambda (elt) (lilypond-ts--version-string-to-list
-                       (plist-get elt :lily-version)))
-        :lessp #'version-list-<
-        :reverse t
-        :in-place t))
+      (when-let* (((file-executable-p bin))
+                  ((not (cl-rassoc bin lilypond-ts--lily-installs-alist
+                                   :key #'car :test #'file-equal-p))))
+        (make-process :name "lilypond"
+                      :command (list bin "--version")
+                      :filter (lambda (proc str)
+                                (when (= 0 (process-exit-status proc))
+                                  (lilypond-ts--index-lily-install bin str))))))))
+
+(defsubst lilypond-ts--closest-compatible-lily (ver-str)
+  (cl-assoc-if (lambda (v)
+                 (version<= ver-str v))
+               lilypond-ts--lily-installs-alist))

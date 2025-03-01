@@ -18,6 +18,7 @@
 (require 'treesit)
 (require 'scheme)
 (require 'geiser-lilypond-guile)
+(require 'lilypond-ts-run)
 (require 'cl-lib)
 
 (defvar lilypond-ts-grammar-url
@@ -185,6 +186,11 @@ in the order their definitions appear in code.")
 
 (defvar lilypond-ts--goal-moments nil
   "Alist storing the goal moment for each score-id.")
+
+(add-to-list 'lilypond-ts-compile-args
+             (format "-dinclude-settings=\"%s\""
+                     (file-name-concat lilypond-ts-location
+                                       "scm/navigation.ily")))
 
 (defun lilypond-ts--put-moment-overlays (nav-table)
   (save-excursion
@@ -898,6 +904,8 @@ of Lilypond."
 ;;; Keymap
 
 (defvar lilypond-ts-mode-map (make-sparse-keymap))
+(define-key lilypond-ts-mode-map
+            (kbd "C-c C-c") #'lilypond-ts-compile)
 (define-key lilypond-ts-mode-map
             [remap eval-buffer] #'lilypond-ts-eval-buffer)
 (define-key lilypond-ts-mode-map

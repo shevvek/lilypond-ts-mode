@@ -952,6 +952,10 @@ of Lilypond."
     (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
     (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)
+    ;; Recursive directory search takes some time, so only trigger automatically
+    ;; if lilypond-ts--lily-installs-alist is empty.
+    (unless (multisession-value lilypond-ts--lily-installs-alist)
+      (lilypond-ts-find-installs))
     (when (featurep 'geiser-lilypond-guile)
       (geiser-mode 1)
       (add-hook 'completion-at-point-functions

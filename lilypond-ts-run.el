@@ -15,6 +15,56 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with lilypond-ts-mode.  If not, see <https://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;; Originally, I had planned for lilypond-ts-mode to either merge or inherit the
+;; command running infrastructure from lilypond-mode. The decision not to do so
+;; warrants explanation.
+
+;; The compile and preview infrastructure of lilypond-mode was written over 20
+;; years ago and has seen miminal evolution since. It includes long and complex
+;; code for constructing shell commands, guessing output filenames, detecting
+;; intermediate output dependencies, and chaining together invocations of
+;; lilypond, lilypond-book, midi playback, and pdf preview.
+
+;; Some elements of the lilypond-mode design seem to me outside its appropriate
+;; scope. Detecting intermediate output dependencies is better handled via make,
+;; particularly given that LilyPond now supports output file redirection that
+;; cannot reasonably be predicted by an external parser. There also seems to me
+;; little reason not to take advantage of Emacs's built-in compilation facility.
+
+;; In general, the design of lilypond-mode goes to great effort to eliminate
+;; even minor UI friction, using what I assume were state of the art techniques
+;; circa 2005, probably based on AUCTeX. Today, virtually all novice LilyPond
+;; users start out with Frescobaldi. I suspect most users of LilyPond in Emacs
+;; are at minimum competent Lisp programmers and likely advanced LilyPond users.
+;; For lilypond-ts-mode, therefore, my philosophy is to defer implementation of
+;; UI features until they are absolutely necessary. This minimizes constraints
+;; on changes to underlying features, and allows time for the right UI design to
+;; crystalize.
+
+;; Eventually, handling of automatic preview refresh, lilypond-book, and even
+;; MIDI playback will be added. For now, these will require either multiple user
+;; commands, or user implemented hooks. A more robust UI for selecting command
+;; line arguments will also eventually be added, probably based on transients,
+;; and using the REPL to retrieve type and documentation information for all
+;; supported options.
+
+;; The consideration driving this initial implementation is support for moment
+;; navigation. The central design difficulty in generating navigation data is
+;; knowing which music expressions go together simultaneously -- and which
+;; should be ignored altogether. It became clear that generating navigation data
+;; via the REPL would require user-defined configuration data tantamount to a
+;; separate \score block just for navigation. Why not instead use the existing
+;; \score block and piggyback on something every user is guaranteed to do
+;; frequently: compiling? To support that design, lilypond-ts-mode needed to add
+;; a compilation feature that would inject the navigation code by default. It
+;; therefore seemed appropriate to take the opportunity to implement some now
+;; expected features missing from lilypond-mode: version detection and master
+;; redirection.
+
+;;; Code:
+
 (require 'cl-lib)
 (require 'treesit)
 

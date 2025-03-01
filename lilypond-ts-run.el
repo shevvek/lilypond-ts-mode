@@ -16,6 +16,7 @@
 ;; along with lilypond-ts-mode.  If not, see <https://www.gnu.org/licenses/>.
 
 (require 'cl-lib)
+(require 'treesit)
 
 (defvar lilypond-ts--search-path
   (cond
@@ -76,10 +77,10 @@
     (setf (multisession-value lilypond-ts--lily-installs-alist) nil))
   (dolist (dir lilypond-ts--search-path)
     (dolist (bin (directory-files-recursively dir lilypond-ts--bin-regex nil t))
-      (when-let* (((file-executable-p bin))
-                  ((not (cl-rassoc bin (multisession-value
-                                        lilypond-ts--lily-installs-alist)
-                                   :key #'car :test #'file-equal-p))))
+      (when (and (file-executable-p bin)
+                 (not (cl-rassoc bin (multisession-value
+                                      lilypond-ts--lily-installs-alist)
+                                 :key #'car :test #'file-equal-p)))
         (make-process :name "lilypond"
                       :command (list bin "--version")
                       :filter (lambda (proc str)
@@ -87,6 +88,58 @@
                                   (lilypond-ts--index-lily-install bin str))))))))
 
 (defsubst lilypond-ts--closest-compatible-lily (ver-str)
-  (cl-assoc-if (lambda (v)
-                 (version<= ver-str v))
-               (multisession-value lilypond-ts--lily-installs-alist)))
+  (cl-assoc ver-str (multisession-value lilypond-ts--lily-installs-alist)
+            :test #'version<=))
+
+(defconst lilypond-ts--version-query
+  (treesit-query-compile 'lilypond '((((escaped_word) @_
+                                       (:match "\\\\version" @_))
+                                      :anchor
+                                      (string (string_fragment) @version)))))
+
+(defun lilypond-ts--doc-lily-version ()
+  (if-let* (((treesit-parser-list (current-buffer) 'lilypond))
+            (caps (treesit-query-capture 'lilypond lilypond-ts--version-query))
+            (version-node (cdr (assq 'version caps))))
+      (treesit-node-text version-node t)
+    (cdr (assq 'version file-local-variables-alist))))
+
+(defun lilypond-ts--find-master ()
+  "If the variable `master' is bound to a string or symbol that is the name of a
+readable file, return that filename. Otherwise, return the buffer filename. The
+unprefixed name `master' is used for compatibility with Frescobaldi document
+variables."
+  (if-let* (((boundp 'master))
+            (master (if (symbolp master)
+                        (symbol-name master)
+                      master))
+            ((stringp master))
+            ((file-readable-p master)))
+      (expand-file-name master)
+    (buffer-file-name)))
+
+(defvar lilypond-ts-include-paths nil
+  "List of directories to pass with `-I' when invoking LilyPond.")
+
+(defvar lilypond-ts-compile-args
+  `(,(format "-dinclude-settings=\"%s\""
+             (file-name-concat lilypond-ts-location "scm/navigation.ily")))
+  "List of arguments to pass to LilyPond when compiling.")
+
+(defun lilypond-ts-compile ()
+  (interactive)
+  (let ((target (lilypond-ts--find-master)))
+    (with-current-buffer (find-file-noselect target)
+      (let* ((ver (lilypond-ts--doc-lily-version))
+             (cmd (if ver (cadr (lilypond-ts--closest-compatible-lily ver))
+                    (cadar (last (multisession-value
+                                  lilypond-ts--lily-installs-alist)))))
+             (includes (mapcar (lambda (dir)
+                                 (format "-I \"%s\"" dir))
+                               lilypond-ts-include-paths))
+             (compile-command (string-join `(,(format "\"%s\"" cmd)
+                                             ,@includes
+                                             ,@lilypond-ts-compile-args
+                                             ,(format "\"%s\"" target))
+                                           " ")))
+        (compile compile-command)))))

@@ -271,11 +271,11 @@ music expression is reached, wrap around to the first."
                                           (and (< this-moment (caar t))
                                                (<= (caar (last t)) this-moment)))
                                         rotated-table))
-             ((< 1 (length bounded-table)))
-             (dest-index (mod n (length bounded-table))))
-    (cl-loop for (moment file ln ch) in (cdr (nth dest-index bounded-table))
-             until (<= moment this-moment)
-             finally (lilypond-ts--go-to-loc file ln ch))))
+             ((length> bounded-table 1))
+             (dest-index (mod n (length bounded-table)))
+             (dest-nav-alist (cdr (nth dest-index bounded-table)))
+             (dest (cl-assoc this-moment dest-nav-alist :test #'>=)))
+    (apply #'lilypond-ts--go-to-loc (cdr dest))))
 
 (defsubst lilypond-ts-backward-same-moment (&optional n)
   "Move to the same musical moment in the previous musical expression. With

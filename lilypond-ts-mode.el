@@ -302,7 +302,7 @@ starting moment whenever an expression lacks music at the exact same moment."
   (interactive "P")
   (when-let ((score-id (get-char-property (point) :score-id)))
     (setf (alist-get score-id lilypond-ts--goal-moments)
-          (when unset (get-char-property (point) :moment)))))
+          (unless unset (get-char-property (point) :moment)))))
 
 (defun lilypond-ts-forward-moment (&optional n)
   "Move forward to the next musical moment after point in the current music

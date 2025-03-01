@@ -34,3 +34,12 @@ A = \relative {
   g f d
   c2.
 }
+
+\score {
+  <<
+    \new Staff << \global \A >>
+    \new Staff << \global \B >>
+    \new Staff << \global \X >>
+  >>
+  \navigation \default
+}

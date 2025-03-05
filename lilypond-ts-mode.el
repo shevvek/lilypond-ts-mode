@@ -78,7 +78,7 @@ all properties in KEYS."
                      (< old-tick tick))
            do (delete-overlay ov)))
 
-(defun lilypond-ts--go-to-loc (file ln ch)
+(defun lilypond-ts--go-to-loc (file ln ch &rest col)
   "Open FILE and move point to line LN character CH."
   (when file (find-file file))
   (forward-line (- ln (line-number-at-pos (point))))
@@ -167,22 +167,15 @@ lilypond-ts-mode.")
 
 (defvar lilypond-ts--moment-navigation-table nil
   "Alist storing the moment navigation table for each score-id. Each table is a
-list of alists:
+list of alists with elements of form:
 
-(((moment<final> . nil)
-  (moment<n>     . (filename line character))
-  (moment<n-1>   . (filename line character))
-  ...
-  (moment<0>     . (filename line character)))
- ...)
+((beg-moment . end-moment) (filename line char col) export-props)
 
 Each element alist represents one music expression available to cycle via
 forward/backward same-moment, mapping the musical timing of every rhythmic event
 within that expression, in reverse order, to the corresponding input location.
-The car of each alist records the end of the last note or rest in the expression,
-for purposes of bounds checking. The alists are sorted by the locations of their
-first moments, i.e. their last elements, in order to cycle through expressions
-in the order their definitions appear in code.")
+The alists are in the same order as expressions appear in the code, or in score
+order for expressions in separate files.")
 
 (defvar lilypond-ts--goal-moments nil
   "Alist storing the goal moment for each score-id.")
@@ -196,7 +189,7 @@ in the order their definitions appear in code.")
   (save-excursion
     (cl-loop with tick = (setq lilypond-ts--nav-update-tick
                                (1+ lilypond-ts--nav-update-tick))
-             for ((ln1 ch1 moment index score-id) (ln2 ch2)) on nav-table
+             for (((ln1 ch1) score-id index moment) ((ln2 ch2))) on nav-table
              for last-pt = (lilypond-ts--go-to-loc nil ln1 ch1) then (point)
              for parent-end = (treesit-node-end
                                (treesit-parent-until
@@ -274,14 +267,14 @@ music expression is reached, wrap around to the first."
              (rotated-table (append (seq-drop nav-table index)
                                     (seq-take nav-table index)))
              (bounded-table (seq-filter (lambda (t)
-                                          (and (< this-moment (caar t))
-                                               (<= (caar (last t)) this-moment)))
+                                          (and (< this-moment (cdaar t))
+                                               (<= (caaar (last t)) this-moment)))
                                         rotated-table))
              ((length> bounded-table 1))
              (dest-index (mod n (length bounded-table)))
-             (dest-nav-alist (cdr (nth dest-index bounded-table)))
-             (dest (cl-assoc this-moment dest-nav-alist :test #'>=)))
-    (apply #'lilypond-ts--go-to-loc (cdr dest))))
+             (dest-nav-alist (nth dest-index bounded-table))
+             (dest (cl-assoc this-moment dest-nav-alist :key #'car :test #'>=)))
+    (apply #'lilypond-ts--go-to-loc (cadr dest))))
 
 (defsubst lilypond-ts-backward-same-moment (&optional n)
   "Move to the same musical moment in the previous musical expression. With
@@ -318,13 +311,13 @@ backwards."
              (my-table (nth voice-index score-table))
              (moment-index (seq-position my-table this-moment
                                          (lambda (elt now)
-                                           (= (car elt) now))))
+                                           (= (caar elt) now))))
              ;; Subtract n because the moment list is backwards
              (dest-index (- moment-index n))
              (max-index (1- (length my-table)))
              (dest-loc (nth (if (< max-index dest-index) max-index dest-index)
                             my-table)))
-    (apply #'lilypond-ts--go-to-loc (cdr dest-loc))))
+    (apply #'lilypond-ts--go-to-loc (cadr dest-loc))))
 
 (defsubst lilypond-ts-backward-moment (&optional n)
   "Move backward to the next musical moment before point in the current music

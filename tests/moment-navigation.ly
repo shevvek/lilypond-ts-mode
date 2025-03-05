@@ -35,11 +35,8 @@ A = \relative {
   c2.
 }
 
-\score {
-  <<
-    \new Staff << \global \A >>
-    \new Staff << \global \B >>
-    \new Staff << \global \X >>
-  >>
-  \navigation \default
-}
+<<
+  \new Staff << \global \A >>
+  \new Staff << \global \B >>
+  \new Staff << \global \X >>
+>>

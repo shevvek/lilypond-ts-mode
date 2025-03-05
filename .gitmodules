@@ -1,0 +1,3 @@
+[submodule "navigation"]
+	path = navigation
+	url = https://github.com/shevvek/ly-navigation-tables

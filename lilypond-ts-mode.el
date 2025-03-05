@@ -183,7 +183,7 @@ order for expressions in separate files.")
 (add-to-list 'lilypond-ts-compile-args
              (format "-dinclude-settings=\"%s\""
                      (file-name-concat lilypond-ts-location
-                                       "scm/navigation.ily")))
+                                       "navigation/navigation.ily")))
 
 (defun lilypond-ts--put-moment-overlays (nav-table)
   (save-excursion

@@ -32,7 +32,7 @@ Currently this package is in alpha.
 
 ## Installation
 1. Ensure prerequisites are installed.
-2. Clone this repository.
+2. Clone this repository with `--recurse-submodules`.
 3. Add to your `init.el`:
    ```
    (add-to-list 'load-path <local repo location>)

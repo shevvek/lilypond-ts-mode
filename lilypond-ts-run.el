@@ -65,8 +65,7 @@
 
 ;;; Code:
 
-(require 'cl-lib)
-(require 'treesit)
+(require 'lilypond-ts-base)
 
 (defvar lilypond-ts-search-path
   (cond
@@ -213,6 +212,48 @@ Compilation uses Emacs `compile' but does not save the command."
       ;; because the LilyPond command is built out of configurable variables.
       ;; TODO: provide a transient interface for managing LilyPond option flags
       (compile compile-command))))
+
+;;; REPL Evaluation
+
+(defun lilypond-ts-eval-region (start end)
+  "Async eval the region within the current Geiser LilyPond REPL."
+  (interactive "r")
+  (let* ((start-node (treesit-node-at start))
+         (end-node (treesit-node-at end))
+         (start-lang-block (lilypond-ts--lang-block-parent start-node))
+         (end-lang-block (lilypond-ts--lang-block-parent end-node))
+         (one-lang-parent-p (treesit-node-eq start-lang-block end-lang-block))
+         (start (treesit-node-start start-node))
+         (end (treesit-node-end end-node)))
+    (cond
+     ((not one-lang-parent-p)
+      (message "lilypond-ts-eval-region error: start and end node do not belong to the same language block."))
+     ((treesit-node-match-p start-lang-block "embedded_scheme_text")
+      (geiser-eval-region start end)
+      (run-hooks 'lilypond-ts-post-eval-hook))
+     (t (geiser-eval--send
+         `(:eval (ly:parser-parse-string
+                  (ly:parser-clone)
+                  ,(buffer-substring-no-properties start end)))
+         (lambda (s)
+           (message "%s" (geiser-eval--retort-result-str s nil))))
+        (run-hooks 'lilypond-ts-post-eval-hook)))))
+
+(defun lilypond-ts-eval-buffer (&optional buffer)
+  "Async eval a LilyPond buffer within the current Geiser LilyPond REPL."
+  (interactive)
+  (let* ((buf (or buffer (current-buffer)))
+         (fname (expand-file-name (buffer-file-name buf))))
+    (with-current-buffer buf
+      (if (file-exists-p fname)
+          (geiser-eval--send
+           `(:eval (ly:parser-parse-string
+                    (ly:parser-clone)
+                    ,(format "\\include \"%s\"" fname)))
+           (lambda (s)
+             (run-hooks 'lilypond-ts-post-eval-hook)
+             (message "%s" s)))
+        (lilypond-ts-eval-region (point-min) (point-max))))))
 
 (provide 'lilypond-ts-run)
 ;;; lilypond-ts-run.el ends here

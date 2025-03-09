@@ -182,29 +182,79 @@ compatibility with Frescobaldi document variables."
       (find-file-noselect master)
     (current-buffer)))
 
-(defvar lilypond-ts-include-paths nil
-  "List of directories to pass with `-I' when invoking LilyPond.")
-
-(defvar lilypond-ts-compile-args nil
+(defvar lilypond-ts-default-lily-args nil
   "List of arguments to pass to LilyPond when compiling.")
 
-(defun lilypond-ts-compile ()
-  "Compile the current buffer using the closest compatible LilyPond version
-available, with arguments constructed from `lilypond-ts-include-paths' and
-`lilypond-ts-compile-args'. If `master' is defined, compile that file instead.
+(defvar lilypond-ts-default-includes nil
+  "List of LilyPond include arguments. Directories will be passed using `-I'.
+Files will be passed using `-dinclude-settings='.")
+
+(defvar lilypond-ts--lily-argument-sets
+  `((score :inherit (navigation defaults))
+    (parts :inherit defaults)
+    (navigation :includes ,(file-name-concat lilypond-ts-location
+                                             "navigation/navigation.ily"))
+    (repl :args "-dcompile-scheme-code"
+          :env "GUILE_AUTO_COMPILE=1"
+          :inherit defaults)
+    (defaults :args lilypond-ts-default-lily-args
+              :includes lilypond-ts-default-includes)))
+
+(defun lilypond-ts--flatten-cmd (cmd)
+  "Lookup CMD in `lilypond-ts--lily-argument-sets'. Evaluate Lisp code in the
+values of :args, :includes, and :env properties, and recursively merge argument
+sets named in :inherits."
+  (when-let ((cmd-plist (cdr (assq cmd lilypond-ts--lily-argument-sets))))
+    (let* ((inherits (mapcar #'lilypond-ts--flatten-cmd
+                             (ensure-list (plist-get cmd-plist :inherit))))
+           (flatten-prop (lambda (prop)
+                           (let ((base-val (remq nil
+                                                 (mapcar #'eval
+                                                         (ensure-list
+                                                          (plist-get cmd-plist
+                                                                     prop))))))
+                             (seq-reduce (lambda (prop-val parent-cmd)
+                                           (nconc prop-val
+                                                  (plist-get parent-cmd prop)))
+                                         inherits base-val))))
+           (args (funcall flatten-prop :args))
+           (includes (funcall flatten-prop :includes))
+           (env (funcall flatten-prop :env))
+           (version (or (plist-get cmd-plist :version)
+                        (seq-some (lambda (parent-cmd)
+                                    (plist-get parent-cmd :version))
+                                  inherits))))
+      `(:args ,args :includes ,includes :env ,env :version ,version))))
+
+(defun lilypond-ts--compile-cmd (cmd)
+  "Compile the current buffer using argument set CMD and the closest compatible
+LilyPond version available. If `master' is defined, compile that file instead.
 Compilation uses Emacs `compile' but does not save the command."
-  (interactive)
   (with-current-buffer (lilypond-ts--find-master)
-    (let* ((ver (lilypond-ts--doc-lily-version))
-           (cmd (cadr (lilypond-ts--closest-compatible-lily ver)))
-           (includes (mapcar (lambda (dir)
-                               (format "-I \"%s\"" dir))
-                             lilypond-ts-include-paths))
-           (compile-command (string-join `(,(format "\"%s\"" cmd)
-                                           ,@includes
-                                           ,@lilypond-ts-compile-args
-                                           ,(format "\"%s\"" (buffer-file-name)))
-                                         " ")))
+    (let* ((cmd-plist (lilypond-ts--flatten-cmd cmd))
+           (ver (or (plist-get cmd-plist :version)
+                    (lilypond-ts--doc-lily-version)))
+           (cmd-bin (cadr (lilypond-ts--closest-compatible-lily ver)))
+           (args (mapconcat #'shell-quote-argument
+                            (flatten-list (plist-get cmd-plist :args))
+                            " "))
+           (includes (mapcan (lambda (f)
+                               (cond
+                                ((file-directory-p f)
+                                 (list "-I" (shell-quote-argument f)))
+                                ((file-exists-p f)
+                                 (list (format "-dinclude-settings=%s"
+                                               (shell-quote-argument f))))
+                                (t (warn "Invalid include argument %s" f))))
+                             (flatten-list (plist-get cmd-plist :includes))))
+           (compilation-environment (append
+                                     (plist-get cmd-plist :env)
+                                     (copy-sequence compilation-environment)))
+           (compile-command (string-join
+                             `(,(shell-quote-argument cmd-bin)
+                               ,@includes ,@args
+                               ,(shell-quote-argument (buffer-file-name)))
+                             " ")))
       ;; By locally binding compile-command, it won't clobber the saved command.
       ;; That is desirable for larger projects that may use makefile for full
       ;; builds, to facilitate compiling individual LilyPond files for preview.
@@ -212,6 +262,13 @@ Compilation uses Emacs `compile' but does not save the command."
       ;; because the LilyPond command is built out of configurable variables.
       ;; TODO: provide a transient interface for managing LilyPond option flags
       (compile compile-command))))
+
+(defun lilypond-ts-compile (&optional cmd)
+  "Compile the current buffer using the closest compatible LilyPond version
+available. If `master' is defined, compile that file instead. Use argument set
+`score', or with universal prefix argument, `parts'."
+  (interactive)
+  (lilypond-ts--compile-cmd (if cmd 'parts 'score)))
 
 ;;; REPL Evaluation
 

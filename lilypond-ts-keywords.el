@@ -22,14 +22,13 @@
 
 ;;; Code:
 
-(require 'geiser)
-(require 'geiser-lilypond-guile)
+(require 'lilypond-ts-base)
+(require 'lilypond-ts-repl)
 
 (defun lilypond-ts--get-and-maybe-refresh (plist &optional force-refresh)
   (when-let* (((or force-refresh
                    (plist-get plist :needs-update)))
-              ((featurep 'geiser-lilypond-guile))
-              ((ly-guile--ensure-repl))
+              ((lilypond-ts--ensure-repl))
               (scm-code (plist-get plist :scm))
               (new-data (geiser-eval--send/result `(:eval ,scm-code)))
               (wrap-element (or (plist-get plist :wrap-element)

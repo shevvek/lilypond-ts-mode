@@ -284,6 +284,7 @@
               #'lilypond-ts--escaped-word-capf nil t)
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
+    (geiser-autodoc-mode 1)
     (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))

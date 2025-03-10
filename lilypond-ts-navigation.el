@@ -52,7 +52,7 @@ order for expressions in separate files.")
              for last-pt = (lilypond-ts--go-to-loc nil ln1 ch1) then (point)
              for parent-end = (treesit-node-end
                                (treesit-parent-until
-                                (treesit-node-at (point)) 'list))
+                                (treesit-node-at (point)) "expression_block"))
              when ln2 do (lilypond-ts--go-to-loc nil ln2 ch2)
              do (lilypond-ts--update-overlay tick last-pt
                                              (if (< last-pt (point) parent-end)

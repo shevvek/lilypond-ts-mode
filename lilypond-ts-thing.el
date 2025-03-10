@@ -59,17 +59,16 @@ text of the next symbol after node."
                (treesit-node-eq
                 n (cdar (treesit-query-capture n lilypond-ts--defun-query)))))
      (sexp (or symbol
-               list
                ,(regexp-opt '("chord"
                               "property_expression"
                               "named_context"
                               "embedded_scheme"
-                              "scheme_embedded_lilypond"))))
-     (list ,(regexp-opt '("expression_block"
-                          "parallel_music"
-                          "scheme_list"
-                          "scheme_vector"
-                          "scheme_byte_vector")))
+                              "scheme_embedded_lilypond"
+                              "expression_block"
+                              "parallel_music"
+                              "scheme_list"
+                              "scheme_vector"
+                              "scheme_byte_vector"))))
      (symbol (or ,(regexp-opt '("escaped_word"
                                 "symbol" ;; also matches scheme_symbol
                                 "string" ;; also matches scheme_string

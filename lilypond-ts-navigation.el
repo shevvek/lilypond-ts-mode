@@ -39,11 +39,6 @@ order for expressions in separate files.")
 (defvar lilypond-ts--goal-moments nil
   "Alist storing the goal moment for each score-id.")
 
-(add-to-list 'lilypond-ts-compile-args
-             (format "-dinclude-settings=\"%s\""
-                     (file-name-concat lilypond-ts-location
-                                       "navigation/navigation.ily")))
-
 (defun lilypond-ts--put-moment-overlays (nav-table)
   (save-excursion
     (cl-loop with tick = (setq lilypond-ts--nav-update-tick

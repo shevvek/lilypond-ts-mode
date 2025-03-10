@@ -226,6 +226,19 @@ sets named in :inherits."
                                   inherits))))
       `(:args ,args :includes ,includes :env ,env :version ,version))))
 
+(defun lilypond-ts--format-lily-args (&rest cmd-plist)
+  (let ((args (flatten-list (plist-get cmd-plist :args)))
+        (includes (mapcan (lambda (f)
+                            (cond
+                             ((file-directory-p f)
+                              (list "-I" (shell-quote-argument f)))
+                             ((file-exists-p f)
+                              (list (format "-dinclude-settings=%s"
+                                            (shell-quote-argument f))))
+                             (t (warn "Invalid include argument %s" f))))
+                          (flatten-list (plist-get cmd-plist :includes)))))
+    (nconc args includes)))
+
 (defun lilypond-ts--compile-cmd (cmd)
   "Compile the current buffer using argument set CMD and the closest compatible
 LilyPond version available. If `master' is defined, compile that file instead.
@@ -235,24 +248,12 @@ Compilation uses Emacs `compile' but does not save the command."
            (ver (or (plist-get cmd-plist :version)
                     (lilypond-ts--doc-lily-version)))
            (cmd-bin (cadr (lilypond-ts--closest-compatible-lily ver)))
-           (args (mapconcat #'shell-quote-argument
-                            (flatten-list (plist-get cmd-plist :args))
-                            " "))
-           (includes (mapcan (lambda (f)
-                               (cond
-                                ((file-directory-p f)
-                                 (list "-I" (shell-quote-argument f)))
-                                ((file-exists-p f)
-                                 (list (format "-dinclude-settings=%s"
-                                               (shell-quote-argument f))))
-                                (t (warn "Invalid include argument %s" f))))
-                             (flatten-list (plist-get cmd-plist :includes))))
+           (args (apply #'lilypond-ts--format-lily-args cmd-plist))
            (compilation-environment (append
                                      (plist-get cmd-plist :env)
                                      (copy-sequence compilation-environment)))
            (compile-command (string-join
-                             `(,(shell-quote-argument cmd-bin)
-                               ,@includes ,@args
+                             `(,(shell-quote-argument cmd-bin) ,@args
                                ,(shell-quote-argument (buffer-file-name)))
                              " ")))
       ;; By locally binding compile-command, it won't clobber the saved command.

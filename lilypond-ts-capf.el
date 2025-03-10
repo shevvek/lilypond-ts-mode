@@ -22,6 +22,7 @@
 ;;; Code:
 
 (require 'lilypond-ts-base)
+(require 'lilypond-ts-keywords)
 
 (defun lilypond-ts--symbol-completions (&optional node)
   (and-let* ((this-node (or node

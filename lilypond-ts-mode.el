@@ -17,6 +17,8 @@
 
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-run)
+(require 'lilypond-ts-repl)
+(require 'lilypond-ts-keywords)
 (require 'lilypond-ts-navigation)
 (require 'lilypond-ts-capf)
 
@@ -96,11 +98,10 @@
 ;;; Font lock
 
 (defun lilypond-ts--fontify-scheme (node override start end &rest _)
-  (when (featurep 'geiser-lilypond-guile)
-    (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
-                                                     (treesit-node-end node))))
-      (dolist (range-interval scheme-ranges)
-        (apply #'geiser-syntax--fontify-syntax-region range-interval)))))
+  (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
+                                                   (treesit-node-end node))))
+    (dolist (range-interval scheme-ranges)
+      (apply #'geiser-syntax--fontify-syntax-region range-interval))))
 
 (defun lilypond-ts--font-lock-rules ()
   `(
@@ -253,6 +254,11 @@
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
+    ;; Recursive directory search takes some time, so only trigger automatically
+    ;; if lilypond-ts--lily-installs-alist is empty.
+    (unless (multisession-value lilypond-ts--lily-installs-alist)
+      (lilypond-ts-find-installs))
+    (lilypond-ts--ensure-repl)
     (setq-local treesit-thing-settings lilypond-ts--thing-settings)
     (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
     (setq-local treesit-defun-tactic 'nested)
@@ -270,22 +276,15 @@
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
-    (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)
-    ;; Recursive directory search takes some time, so only trigger automatically
-    ;; if lilypond-ts--lily-installs-alist is empty.
-    (unless (multisession-value lilypond-ts--lily-installs-alist)
-      (lilypond-ts-find-installs))
-    (when (featurep 'geiser-lilypond-guile)
-      (geiser-mode 1)
-      (add-hook 'completion-at-point-functions
-                #'lilypond-ts--property-capf nil t)
-      (add-hook 'completion-at-point-functions
-                #'lilypond-ts--symbol-capf nil t)
-      (add-hook 'completion-at-point-functions
-                #'lilypond-ts--escaped-word-capf nil t))
+    (add-hook 'completion-at-point-functions
+              #'lilypond-ts--property-capf nil t)
+    (add-hook 'completion-at-point-functions
+              #'lilypond-ts--symbol-capf nil t)
+    (add-hook 'completion-at-point-functions
+              #'lilypond-ts--escaped-word-capf nil t)
     (setq-local lisp-indent-function #'scheme-indent-function)
-    (setq-local syntax-propertize-function
-                #'lilypond-ts--propertize-syntax)))
+    (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
+    (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ily\\'" . lilypond-ts-mode))

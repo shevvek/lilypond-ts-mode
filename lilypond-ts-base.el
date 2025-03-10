@@ -24,12 +24,8 @@
 (require 'treesit)
 (require 'scheme)
 (require 'cl-lib)
-(require 'geiser)
-(require 'geiser-guile)
-(require 'geiser-lilypond-guile)
 (require 'lilypond-ts-utils)
 (require 'lilypond-ts-thing)
-(require 'lilypond-ts-keywords)
 
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
@@ -69,6 +65,10 @@ of Lilypond."
                                                   "scheme_embedded_lilypond"
                                                   "lilypond_program"))
                                           (treesit-node-type n)))))
+
+(defun lilypond-ts--scheme-at-p (&optional pos)
+  (treesit-node-match-p (treesit-node-at (or pos (point)) nil t)
+                        "scheme"))
 
 (provide 'lilypond-ts-base)
 ;;; lilypond-ts-base.el ends here

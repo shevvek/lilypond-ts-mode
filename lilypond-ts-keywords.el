@@ -158,6 +158,45 @@
      :scm (map car (filter pair? supported-clefs))
      :wrap-element identity))
 
+(defvar lilypond-ts--musics
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:music?)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--music-functions
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:music-function?)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--markups
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type (lambda (o)
+                              (or (markup? o)
+                                  (and (markup-list? o)
+                                       (pair? o)))))
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--context-defs
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:context-def?)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--context-mods
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:context-mod?)
+     :wrap-element symbol-name))
+
+(defvar lilypond-ts--output-defs
+  '( :value nil
+     :needs-update t
+     :scm (keywords-of-type ly:output-def?)
+     :wrap-element symbol-name))
+
 (defvar lilypond-ts--repeat-types
   '(unfold tremolo volta segno percent))
 

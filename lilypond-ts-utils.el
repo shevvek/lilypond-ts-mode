@@ -22,6 +22,8 @@
 
 ;;; Code:
 
+(require 'treesit)
+
 (defsubst lilypond-ts--overlay-match-p (ov plist)
   "Return non-nil if OV has every property in PLIST with a matching value."
   (cl-loop for (key value) on plist by #'cddr
@@ -75,5 +77,30 @@ all properties in KEYS."
   (let ((name (cl-gentemp)))
     (fset (cl-gentemp) l)
     name))
+
+(defun lilypond-ts--treesit-capture-neighborhood (query before after
+                                                        capture-count thing)
+  "Make a predicate of a single argument NODE, that returns non-nil if it
+matches a node captured by `treesit' QUERY in the smallest subtree spanning
+BEFORE and AFTER THING nodes on either side of NODE."
+  (lambda (node)
+    (when-let*
+        ((this-start (treesit-node-start node))
+         (this-end (treesit-node-end node))
+         (left-neighbor (or (treesit-navigate-thing (treesit-node-start node)
+                                                    (- before) 'beg thing)
+                            this-start))
+         (right-neighbor (or (treesit-navigate-thing (treesit-node-end node)
+                                                     after 'end thing)
+                             this-end))
+         (common-parent (treesit-node-on left-neighbor right-neighbor))
+         (captures (treesit-query-capture common-parent query
+                                          left-neighbor right-neighbor))
+         (index (cl-position node captures
+                             :key #'cdr :test #'treesit-node-eq))
+         (offset (string-to-number
+                  (symbol-name (car (elt captures index)))))
+         (start-index (- index offset)))
+      (seq-subseq captures start-index (+ start-index capture-count)))))
 (provide 'lilypond-ts-utils)
 ;;; lilypond-ts-utils.el ends here

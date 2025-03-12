@@ -17,162 +17,234 @@
 
 ;;; Commentary:
 
-;; Completion at point functions
+;; Except for the configuration settings, this implementation is entirely
+;; generic and could be upstreamed into `treesit', similar to the rule-based
+;; interfaces for font lock, indentation, imenu, and thing.
 
 ;;; Code:
 
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
 
-(defun lilypond-ts--symbol-completions (&optional node)
-  (and-let* ((this-node (or node
-                            (treesit-node-at (point))))
-             (dad (treesit-node-prev-sibling this-node))
-             (cmd (and (treesit-node-match-p dad "^escaped_word$")
-                       (treesit-node-text dad t))))
-    (cond
-     ((string-equal cmd "\\clef")
-      (lilypond-ts-list clefs))
-     ((string-equal cmd "\\repeat")
-      lilypond-ts--repeat-types)
-     ((string-equal cmd "\\language")
-      (lilypond-ts-list pitch-languages))
-     ((or (string-equal cmd "\\consists")
-          (string-equal cmd "\\remove"))
-      (lilypond-ts-list translators)))))
+;; Query match with no :pred clauses => text regex lists same # of captures
+;; Find which capture = node, then apply the rest of each regex list as a "mask"
+;; Whichever mask matches fully => capf table
+;; Bounds narrowing should mean that only one set of captures is generated, but
+;; the mask can "slide" to find a match
+;; allow multiple masks to match
 
-(defun lilypond-ts--symbol-capf (&optional predicate)
-  (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
-             (this-node (treesit-node-at (point)))
-             ((treesit-node-match-p this-node "^symbol$"))
-             (start (treesit-node-start this-node))
-             (end (treesit-node-end this-node))
-             ((< start end))
-             (cmps (lilypond-ts--symbol-completions this-node)))
-    (list start end
-          (completion-table-dynamic (lambda (pfx)
-                                      cmps))
-          :company-docsig
-          (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
-          :company-doc-buffer #'geiser-capf--company-doc-buffer
-          :company-location #'geiser-capf--company-location)))
+(defvar lilypond-ts--treesit-completion-rules nil)
+(defvar lilypond-ts--treesit-capf-rules nil)
+(defvar lilypond-ts--default-completions-function
+  (lambda (key)
+    `(lilypond-ts-list ,key)))
+(defvar lilypond-ts--capf-predicate-filter
+  (lambda (str)
+    (string-trim-left str "\\\\")))
+(defvar lilypond-ts--capf-properties
+  `(:company-docsig
+    ,(and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
+    :company-doc-buffer #'geiser-capf--company-doc-buffer
+    :company-location #'geiser-capf--company-location))
 
-(defsubst lilypond-ts--context-p (str)
-  (seq-contains-p (lilypond-ts-list contexts) str))
+(defun lilypond-ts--treesit-completion-rule (rule)
+  (let* ((key (car rule))
+         (plist (cdr rule))
+         (get-list (lambda (&rest _)
+                     (eval (or (plist-get plist :static-list)
+                               (funcall lilypond-ts--default-completions-function
+                                        key)))))
+         (completions-function (plist-get plist :completions-function))
+         (kind (plist-get plist :company-kind)))
+    (list key (lambda (str)
+                (seq-contains-p (funcall get-list)
+                                (funcall lilypond-ts--capf-predicate-filter
+                                         str)))
+          (lambda (&rest friends)
+            (completion-table-dynamic
+             (lambda (&optional pfx)
+               (let ((completions (apply (or completions-function get-list)
+                                         friends)))
+                 ;; (when kind
+                 ;;   (mapc (lambda (word)
+                 ;;           (put-text-property 0 1 :company-kind kind word))
+                 ;;         completions))
+                 completions)))))))
 
-(defsubst lilypond-ts--grob-p (str)
-  (seq-contains-p (lilypond-ts-list grobs) str))
+(defun lilypond-ts--treesit-configure-capf (completion-categories capf-rules)
+  (setq lilypond-ts--treesit-completion-rules
+        (mapcar #'lilypond-ts--treesit-completion-rule completion-categories))
+  (setq lilypond-ts--treesit-capf-rules
+        (mapcar
+         (lambda (rule)
+           `(,(car rule)
+             ,(mapcar
+               (lambda (mask)
+                 (mapcar
+                  (lambda (key)
+                    (cond
+                     ((not key) (list #'always #'ignore))
+                     ((or (stringp key)
+                          (listp key))
+                      (list (lambda (str)
+                              (member str (ensure-list key)))
+                            (lambda (&rest _)
+                              (completion-table-dynamic
+                               (lambda (&optional p)
+                                 (ensure-list key))))))
+                     (t (alist-get key lilypond-ts--treesit-completion-rules
+                                   (list #'always #'ignore)))))
+                  mask))
+               (cadr rule))
+             ,@(cddr rule)))
+         capf-rules)))
 
-(defsubst lilypond-ts--grob-property-p (str)
-  (seq-contains-p (lilypond-ts-list grob-properties) str))
+(defun lilypond-ts--treesit-capf ()
+  (cl-loop
+   with node = (treesit-node-on (1- (point)) (point))
+   for (query-pred masks filter) in lilypond-ts--treesit-capf-rules
+   for captures = (funcall query-pred node)
+   when captures
+   thereis (cl-loop
+            for mask in masks
+            for words = (cl-loop
+                         for tail on captures until (> (length mask)
+                                                       (length tail))
+                         thereis (cl-loop
+                                  with home = nil
+                                  for (key . neighbor) in tail
+                                  for (pred make-table) in mask
+                                  for text = (treesit-node-text neighbor t)
+                                  unless (treesit-node-eq node neighbor)
+                                  if (funcall pred text)
+                                  collect text into friends
+                                  else return nil end
+                                  else do (setf home make-table) end
+                                  finally return (apply home friends)))
+            when words collect words into tables
+            finally return `(,(treesit-node-start node)
+                             ,(treesit-node-end node)
+                             ,(funcall (or filter #'identity)
+                                       (apply #'completion-table-merge
+                                              tables))
+                             ,@lilypond-ts--capf-properties))))
 
-(defsubst lilypond-ts--translation-property-p (str)
-  (seq-contains-p (lilypond-ts-list translation-properties) str))
 
-(defun lilypond-ts--property-completions (&optional node)
-  "All valid symbols for the current node within a Lilypond property expression"
-  (let* ((this-node (or node
-                        (treesit-node-at (point))))
-         (parent-node (treesit-node-parent this-node))
-         (prop-ex-p (treesit-node-match-p parent-node "^property_expression$"))
-         (func-node (treesit-search-forward this-node "^escaped_word$" t))
-         (func-text (string-trim-left (treesit-node-text func-node t)
-                                      "\\\\"))
-         (left-sib (when prop-ex-p (treesit-node-prev-sibling
-                                    (treesit-node-prev-sibling this-node))))
-         (left-sib (if (treesit-node-match-p left-sib "^property_expression$")
-                       (car (last (treesit-node-children left-sib)))
-                     left-sib))
-         (right-sib (when prop-ex-p (treesit-node-next-sibling
-                                     (treesit-node-next-sibling this-node))))
-         (left-text (treesit-node-text left-sib t))
-         (right-text (treesit-node-text right-sib t))
-         (left-ctx-p (when left-sib
-                       (lilypond-ts--context-p left-text)))
-         (left-grob-p (when (and left-sib
-                                 (not left-ctx-p))
-                        (lilypond-ts--grob-p left-text)))
-         (right-grob-p (when right-sib
-                         (lilypond-ts--grob-p right-text)))
-         (right-grob-prop-p (when (and right-sib
-                                       (not right-grob-p))
-                              (lilypond-ts--grob-property-p right-text)))
-         (right-ctx-prop-p (when (and right-sib
-                                      (not right-grob-p)
-                                      (not right-grob-prop-p))
-                             (lilypond-ts--translation-property-p right-text))))
-    (when lilypond-ts--debug-msgs
-      (message "Debug lilypond-ts--property-completions: %s %s %s"
-               func-text left-text right-text))
-    (when (and (treesit-node-match-p this-node "^symbol$")
-               (or prop-ex-p
-                   (seq-contains-p lilypond-ts--context-property-functions
-                                   func-text)
-                   (seq-contains-p lilypond-ts--grob-property-functions
-                                   func-text)))
-      (append
-       (when (and (not left-sib)
-                  (or (not right-sib) right-grob-p right-ctx-prop-p))
-         (lilypond-ts-list contexts))
-       (when (and (not (seq-contains-p lilypond-ts--context-property-functions
-                                       func-text))
-                  (or (not left-sib) left-ctx-p)
-                  (or (not right-sib) right-grob-prop-p))
-         (lilypond-ts-list grobs))
-       (when left-grob-p
-         (geiser-eval--send/result
-          `(:eval (ly:grob-property-completions ,left-text ,right-text))))
-       (when (and (not (seq-contains-p lilypond-ts--grob-property-functions
-                                       func-text))
-                  (or (not left-sib) left-ctx-p))
-         (lilypond-ts-list translation-properties))))))
 
-(defun lilypond-ts--property-capf (&optional predicate)
-  (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
-             (this-node (treesit-node-at (point)))
-             (this-node (if (treesit-node-match-p this-node "^punctuation$")
-                            (treesit-node-at (1- (point)))
-                          this-node))
-             ((treesit-node-match-p this-node "^symbol$"))
-             (start (treesit-node-start this-node))
-             (end (treesit-node-end this-node))
-             ((< start end))
-             (cmps (lilypond-ts--property-completions this-node)))
-    (list start end
-          (completion-table-dynamic (lambda (pfx)
-                                      cmps))
-          :company-docsig
-          (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
-          :company-doc-buffer #'geiser-capf--company-doc-buffer
-          :company-location #'geiser-capf--company-location)))
+(defun lilypond-ts--grob-property-completions (&rest friends)
+  (let ((tail (seq-drop-while (lambda (friend)
+                                (not (seq-contains-p (lilypond-ts-list grobs)
+                                                     friend)))
+                              friends)))
+    (geiser-eval--send/result
+     `(:eval (ly:grob-property-completions ,(car tail) ,(cadr tail))))))
 
-(defun lilypond-ts--escaped-word-completions (&optional pfx)
-  (let ((pfx (or pfx "")))
-    (append
-     '("include" "maininput" "version"
-       "markup" "markuplist" ;; since these are omitted from lexer-keywords list
-       "breve" "longa" "maxima")
-     lilypond-ts--lexer-keywords
-     (lilypond-ts-list contexts)
-     (lilypond-ts-list markup-functions)
-     (geiser-eval--send/result `(:eval (keywords-of-type ly:music-word?
-                                                         ,pfx))))))
+;; Reference https://github.com/jdtsmith/kind-icon/blob/main/kind-icon.el
+(defvar lilypond-ts--completion-categories
+  '((clefs :company-kind "u")
+    (repeats :company-kind "cm" :static-list lilypond-ts--repeat-types)
+    (pitch-languages :company-kind "e")
+    (translators :company-kind "cn")
+    (contexts :company-kind "%")
+    (grobs :company-kind "c")
+    (grob-properties :company-kind "pr"
+                     :completions-function lilypond-ts--grob-property-completions)
+    (translation-properties :company-kind "pa")
+    (context-commands :static-list lilypond-ts--context-property-functions)
+    (grob-commands :static-list lilypond-ts--grob-property-functions)
+    (lexer-keywords :company-kind "kw" :static-list lilypond-ts--lexer-keywords)
+    (markup-functions :company-kind "m")
+    (markups :company-kind "s")
+    (music-functions :company-kind "f")
+    (musics :company-kind "va")
+    (context-mods :company-kind "if")
+    (output-defs :company-kind "{")
+    (context-defs :company-kind "%")
+    (scores :company-kind "tx")
+    (books :company-kind "rf")
+    (music-types :company-kind "ev")
+    (music-properties :company-kind "fd")))
 
-(defun lilypond-ts--escaped-word-capf (&optional predicate)
-  (and-let* (((treesit-parser-list (current-buffer) 'lilypond))
-             (this-node (treesit-node-at (point)))
-             ((treesit-node-match-p this-node "^escaped_word$"))
-             (start (1+ (treesit-node-start this-node)))
-             (end (treesit-node-end this-node))
-             ((< start end)))
-    (list start end
-          (completion-table-dynamic (lambda (pfx)
-                                      (lilypond-ts--escaped-word-completions)))
-          :company-docsig
-          (and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
-          :company-doc-buffer #'geiser-capf--company-doc-buffer
-          :company-location #'geiser-capf--company-location
-          :exclusive t)))
+(defvar lilypond-ts--capf-rules
+  `((,(lambda (node)
+        (when (treesit-node-match-p node "escaped_word")
+          (list (cons nil node))))
+     ((lexer-keywords)
+      (musics)
+      (music-functions)
+      (markups)
+      (markup-functions)
+      (context-defs)
+      (context-mods)
+      (output-defs))
+     ,(lambda (table)
+        (completion-table-subvert table "\\" "")))
+
+    (,(lilypond-ts--treesit-capture-neighborhood
+       (treesit-query-compile 'lilypond
+                              '(((escaped_word) @0
+                                 :anchor
+                                 (symbol) @1)))
+       1 0 2 'sexp)
+     (("\\clef" clefs)
+      ("\\repeat" repeats)
+      ("\\language" pitch-languages)
+      (("\\consists" "\\remove") translators)
+      (context-commands contexts)
+      (context-commands translation-properties)
+      (grob-commands contexts)
+      (grob-commands grobs)))
+
+    (,(lilypond-ts--treesit-capture-neighborhood
+       (treesit-query-compile 'lilypond
+                              '((property_expression
+                                 (property_expression
+                                  (property_expression :anchor
+                                                       (symbol) @0
+                                                       (symbol) @1
+                                                       :anchor)
+                                  (symbol) @2)
+                                 (symbol) @3)))
+       1 1 4 'sexp)
+     ((contexts grobs grob-properties nil)))
+
+    (,(lilypond-ts--treesit-capture-neighborhood
+       (treesit-query-compile 'lilypond
+                              '((property_expression
+                                 (property_expression :anchor
+                                                      (symbol) @0
+                                                      (symbol) @1
+                                                      :anchor)
+                                 (symbol) @2)))
+       1 1 3 'sexp)
+     ((contexts grobs grob-properties)
+      (grobs grob-properties nil)))
+
+    (,(lilypond-ts--treesit-capture-neighborhood
+       (treesit-query-compile 'lilypond
+                              '(((escaped_word) @0 :anchor
+                                 (property_expression :anchor
+                                                      (symbol) @1
+                                                      (symbol) @2
+                                                      :anchor))))
+       2 1 3 'sexp)
+     ((context-commands contexts translation-properties)
+      (grob-commands contexts grobs)
+      (grob-commands grobs grob-properties)))
+
+    (,(lilypond-ts--treesit-capture-neighborhood
+       (treesit-query-compile 'lilypond
+                              '((property_expression :anchor
+                                                     (symbol) @0
+                                                     (symbol) @1
+                                                     :anchor)))
+       1 1 2 'sexp)
+     ((grobs grob-props)
+      (contexts grobs)
+      (contexts translation-properties)))))
+
+;; Information that needs to be captured:
+;; neighborhood ruleset, table, kind, narrowing
 
 (provide 'lilypond-ts-capf)
 ;;; lilypond-ts-capf.el ends here

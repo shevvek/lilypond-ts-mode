@@ -278,12 +278,6 @@
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
-    (add-hook 'completion-at-point-functions
-              #'lilypond-ts--property-capf nil t)
-    (add-hook 'completion-at-point-functions
-              #'lilypond-ts--symbol-capf nil t)
-    (add-hook 'completion-at-point-functions
-              #'lilypond-ts--escaped-word-capf nil t)
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
     (geiser-autodoc-mode 1)

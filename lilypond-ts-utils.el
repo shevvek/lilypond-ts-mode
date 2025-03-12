@@ -68,5 +68,12 @@ all properties in KEYS."
 (defsubst lilypond-ts--node-preceded-by-whitespace (node)
   (string-match-p "\\s-" (string (char-before (treesit-node-start node)))))
 
+;; This is stupid and is only needed because Treesit query :pred clauses accept
+;; only the interned name of a function, not the function itself.
+(defun lilypond-ts--intern-lambda (l)
+  "Turn lambda L into a named function using `cl-gentemp' and return the name."
+  (let ((name (cl-gentemp)))
+    (fset (cl-gentemp) l)
+    name))
 (provide 'lilypond-ts-utils)
 ;;; lilypond-ts-utils.el ends here

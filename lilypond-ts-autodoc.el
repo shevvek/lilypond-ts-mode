@@ -62,15 +62,18 @@
     (or (lilypond-ts--autodoc-str sig)
         (geiser-autodoc--str* sig))))
 
-(defun lilypond-ts--music-autodoc-at-point (callback)
+(defun lilypond-ts--music-autodoc-at-point ()
   (cl-loop with node0 = (treesit-node-at (point))
            for node = (if (treesit-node-match-p node0 "escaped_word")
                           node0
                         (treesit-search-forward node0 "escaped_word" t))
            then (treesit-search-forward node "escaped_word" t)
            for name = (string-trim-left (treesit-node-text node t) "\\\\")
-           for sig = (car (geiser-autodoc--get-signatures (list name)
-                                                          callback))
+           ;; passing the callback through leads to output via geiser's format
+           ;; this seems hard to patch since update-signatures duplicates path
+           ;; construction functionality. so we do without async update
+           ;; probably not that important in practice for lilypond
+           for sig = (car (geiser-autodoc--get-signatures (list name) nil))
            until (cadr sig)
            finally return
            (when (or (treesit-node-eq node0 node)
@@ -82,11 +85,11 @@
                                                     arity 'beg 'sexp))))))
              (lilypond-ts--autodoc-str sig))))
 
-(defun lilypond-ts--autodoc-at-point (callback)
+(defun lilypond-ts--autodoc-at-point (&optional callback)
   (if (or (not (treesit-parser-list (current-buffer) 'lilypond))
           (lilypond-ts--scheme-at-p))
-      (geiser-autodoc--autodoc-at-point callback)
-    (lilypond-ts--music-autodoc-at-point callback)))
+      (geiser-autodoc--autodoc (geiser-syntax--scan-sexps) callback)
+    (lilypond-ts--music-autodoc-at-point)))
 
 ;; The alternative here is literally copying Geiser's top layer of autodoc code.
 (advice-add #'geiser-autodoc--autodoc-at-point

@@ -26,15 +26,8 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
 
-;; Query match with no :pred clauses => text regex lists same # of captures
-;; Find which capture = node, then apply the rest of each regex list as a "mask"
-;; Whichever mask matches fully => capf table
-;; Bounds narrowing should mean that only one set of captures is generated, but
-;; the mask can "slide" to find a match
-;; allow multiple masks to match
+;;; The values of these variables are LilyPond specific, but the API is generic:
 
-(defvar lilypond-ts--treesit-completion-rules nil)
-(defvar lilypond-ts--treesit-capf-rules nil)
 (defvar lilypond-ts--default-completions-function
   (lambda (key)
     `(lilypond-ts-list ,key)))
@@ -46,6 +39,11 @@
     ,(and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
     :company-doc-buffer #'geiser-capf--company-doc-buffer
     :company-location #'geiser-capf--company-location))
+
+;;; This code is entirely generic:
+
+(defvar lilypond-ts--treesit-completion-rules nil)
+(defvar lilypond-ts--treesit-capf-rules nil)
 
 (defun lilypond-ts--treesit-completion-rule (rule)
   (let* ((key (car rule))
@@ -71,32 +69,39 @@
                  ;;         completions))
                  completions)))))))
 
+(defun lilypond-ts--treesit-capf-predicate (pred)
+  (cond
+   ((not pred) #'ignore)
+   ((functionp pred) pred)
+   (t (lambda (node)
+        (when (treesit-node-match-p node pred)
+          (list (cons nil node)))))))
+
+(defun lilypond-ts--treesit-make-capf-table (key)
+  (cond
+   ((not key) (list #'always #'ignore))
+   ((or (stringp key)
+        (listp key))
+    (list (lambda (str)
+            (member str (ensure-list key)))
+          (lambda (&rest _)
+            (completion-table-dynamic
+             (lambda (&optional p)
+               (ensure-list key))))))
+   (t (alist-get key lilypond-ts--treesit-completion-rules
+                 (list #'always #'ignore)))))
+
 (defun lilypond-ts--treesit-configure-capf (completion-categories capf-rules)
   (setq lilypond-ts--treesit-completion-rules
         (mapcar #'lilypond-ts--treesit-completion-rule completion-categories))
   (setq lilypond-ts--treesit-capf-rules
         (mapcar
          (lambda (rule)
-           `(,(car rule)
-             ,(mapcar
-               (lambda (mask)
-                 (mapcar
-                  (lambda (key)
-                    (cond
-                     ((not key) (list #'always #'ignore))
-                     ((or (stringp key)
-                          (listp key))
-                      (list (lambda (str)
-                              (member str (ensure-list key)))
-                            (lambda (&rest _)
-                              (completion-table-dynamic
-                               (lambda (&optional p)
-                                 (ensure-list key))))))
-                     (t (alist-get key lilypond-ts--treesit-completion-rules
-                                   (list #'always #'ignore)))))
-                  mask))
-               (cadr rule))
-             ,@(cddr rule)))
+           `(,(funcall #'lilypond-ts--treesit-capf-predicate (car rule))
+             ,(mapcar (lambda (mask)
+                        (mapcar #'lilypond-ts--treesit-make-capf-table mask))
+                      (cadr rule))
+             . ,(cddr rule)))
          capf-rules)))
 
 (defun lilypond-ts--treesit-capf ()
@@ -127,11 +132,15 @@
                              ,(funcall (or filter #'identity)
                                        (apply #'completion-table-merge
                                               tables))
-                             ,@lilypond-ts--capf-properties))))
+                             . ,lilypond-ts--capf-properties))))
 
-
+;;; LilyPond specific configuration begins here:
 
 (defun lilypond-ts--grob-property-completions (&rest friends)
+  "List all grob properties consistent with grob path elements FRIENDS.
+
+If there are any path elements after the grob type, only list grob properties
+that allow nesting."
   (let ((tail (seq-drop-while (lambda (friend)
                                 (not (seq-contains-p (lilypond-ts-list grobs)
                                                      friend)))
@@ -166,9 +175,7 @@
     (music-properties :company-kind "fd")))
 
 (defvar lilypond-ts--capf-rules
-  `((,(lambda (node)
-        (when (treesit-node-match-p node "escaped_word")
-          (list (cons nil node))))
+  `(("escaped_word"
      ((lexer-keywords)
       (musics)
       (music-functions)
@@ -242,9 +249,6 @@
      ((grobs grob-props)
       (contexts grobs)
       (contexts translation-properties)))))
-
-;; Information that needs to be captured:
-;; neighborhood ruleset, table, kind, narrowing
 
 (provide 'lilypond-ts-capf)
 ;;; lilypond-ts-capf.el ends here

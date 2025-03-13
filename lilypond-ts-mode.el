@@ -281,6 +281,10 @@
     (setq-local lisp-indent-function #'scheme-indent-function)
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
     (geiser-autodoc-mode 1)
+    (lilypond-ts--treesit-configure-capf lilypond-ts--completion-categories
+                                         lilypond-ts--capf-rules)
+    (add-hook 'completion-at-point-functions
+              #'lilypond-ts--treesit-capf nil t)
     (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))

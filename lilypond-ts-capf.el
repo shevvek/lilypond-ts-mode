@@ -48,21 +48,24 @@
 (defun lilypond-ts--treesit-completion-rule (rule)
   (let* ((key (car rule))
          (plist (cdr rule))
+         (match-function (plist-get plist :match-function))
          (get-list (lambda (&rest _)
                      (eval (or (plist-get plist :static-list)
                                (funcall lilypond-ts--default-completions-function
                                         key)))))
          (completions-function (plist-get plist :completions-function))
          (kind (plist-get plist :company-kind)))
-    (list key (lambda (str)
+    (list key
+          (or match-function
+              (lambda (str)
                 (seq-contains-p (funcall get-list)
                                 (funcall lilypond-ts--capf-predicate-filter
-                                         str)))
+                                         str))))
           (lambda (&rest friends)
             (completion-table-dynamic
              (lambda (&optional pfx)
                (let ((completions (apply (or completions-function get-list)
-                                         friends)))
+                                         pfx friends)))
                  ;; (when kind
                  ;;   (mapc (lambda (word)
                  ;;           (put-text-property 0 1 :company-kind kind word))
@@ -184,6 +187,10 @@ should generally not directly write mask lambdas."
    thereis (cl-loop
             for mask in masks
             for words = (cl-loop
+                         ;; This looks like a lot of nested iteration, but in
+                         ;; practice, the most common case will be mask exactly
+                         ;; the same length as captures => only one step.
+                         ;; query pred should strive to return the minimum nodes
                          for tail on captures until (> (length mask)
                                                        (length tail))
                          thereis (cl-loop
@@ -221,29 +228,48 @@ that allow nesting."
 
 ;; Reference https://github.com/jdtsmith/kind-icon/blob/main/kind-icon.el
 (defvar lilypond-ts--completion-categories
-  '((clefs :company-kind "u")
-    (repeats :company-kind "cm" :static-list lilypond-ts--repeat-types)
-    (pitch-languages :company-kind "e")
-    (translators :company-kind "cn")
-    (contexts :company-kind "%")
-    (grobs :company-kind "c")
-    (grob-properties :company-kind "pr"
+  `((clefs :company-kind unit)
+    (repeats :company-kind command :static-list lilypond-ts--repeat-types)
+    (pitch-languages :company-kind enum)
+    (translators :company-kind constructor)
+    (contexts :company-kind struct)
+    (grobs :company-kind class)
+    (grob-properties :company-kind property
                      :completions-function lilypond-ts--grob-property-completions)
-    (translation-properties :company-kind "pa")
+    (translation-properties :company-kind param)
     (context-commands :static-list lilypond-ts--context-property-functions)
     (grob-commands :static-list lilypond-ts--grob-property-functions)
-    (lexer-keywords :company-kind "kw" :static-list lilypond-ts--lexer-keywords)
-    (markup-functions :company-kind "m")
-    (markups :company-kind "s")
-    (music-functions :company-kind "f")
-    (musics :company-kind "va")
-    (context-mods :company-kind "if")
-    (output-defs :company-kind "{")
-    (context-defs :company-kind "%")
-    (scores :company-kind "tx")
-    (books :company-kind "rf")
-    (music-types :company-kind "ev")
-    (music-properties :company-kind "fd")))
+    (lexer-keywords :company-kind keyword
+                    :static-list lilypond-ts--lexer-keywords)
+    (markup-functions :company-kind method)
+    (markups :company-kind string)
+    (music-functions :company-kind function)
+    (musics :company-kind variable)
+    (context-mods :company-kind interface)
+    (output-defs :company-kind module)
+    (context-defs :company-kind struct)
+    (scores :company-kind text)
+    (books :company-kind reference)
+    (music-types :company-kind event)
+    (music-properties :company-kind field)
+    (scheme-identifiers :company-kind macro
+                        :match-function always)
+    (scheme-modules :company-kind module)
+    (geiser-scheme :company-kind macro
+                   :match-function always
+                   :completions-function
+                   ,(lambda (p &rest _)
+                      (geiser-completion--symbol-list p)))
+    (geiser-module :company-kind module
+                   :match-function always
+                   :completions-function
+                   ,(lambda (p &rest _)
+                      (geiser-completion--module-list p)))
+    (filename :company-kind file
+              :match-function always
+              :completions-function
+              ,(lambda (p &rest _)
+                 (file-name-all-completions p default-directory)))))
 
 (defvar lilypond-ts--capf-rules
   `(("escaped_word"
@@ -268,6 +294,8 @@ that allow nesting."
       ("\\repeat" repeats)
       ("\\language" pitch-languages)
       (("\\consists" "\\remove") translators)
+      (("\\context" "\\new") contexts)
+      ("\\markupMap" music-types)
       (context-commands contexts)
       (context-commands translation-properties)
       (grob-commands contexts)
@@ -308,7 +336,8 @@ that allow nesting."
        2 1 3 'sexp)
      ((context-commands contexts translation-properties)
       (grob-commands contexts grobs)
-      (grob-commands grobs grob-properties)))
+      (grob-commands grobs grob-properties)
+      ("\\markupMap" music-types music-properties)))
 
     (,(lilypond-ts--treesit-capture-neighborhood
        (treesit-query-compile 'lilypond
@@ -319,7 +348,25 @@ that allow nesting."
        1 1 2 'sexp)
      ((grobs grob-props)
       (contexts grobs)
-      (contexts translation-properties)))))
+      (contexts translation-properties)
+      (music-types music-properties)))
+    ("^symbol$"
+     ;; as a fallback, only suggest completions that start with capital letters
+     ;; to avoid suggesting completions for note names by accident
+     ((contexts)
+      (grobs)
+      (translators)
+      (music-types)))
+    ;; (,(lilypond-ts--treesit-capture-neighborhood
+    ;;    (treesit-query-compile 'lilypond
+    ;;                           '((scheme_list) @0))
+    ;;    0 0 1 'sexp)
+    ;;  ((geiser-module)
+    ;;   (scheme-identifiers)))
+    ("scheme_symbol"
+     ((scheme-identifiers)))
+    ("string_fragment"
+     ((filename)))))
 
 (provide 'lilypond-ts-capf)
 ;;; lilypond-ts-capf.el ends here

@@ -197,6 +197,18 @@
      :scm (keywords-of-type ly:output-def?)
      :wrap-element symbol-name))
 
+(defvar lilypond-ts--scheme-identifiers
+  '( :value nil
+     :needs-update t
+     :scm (:ge completions "")
+     :wrap-element identity))
+
+(defvar lilypond-ts--scheme-modules
+  '( :value nil
+     :needs-update t
+     :scm (:ge module-completions "")
+     :wrap-element identity))
+
 (defvar lilypond-ts--repeat-types
   '(unfold tremolo volta segno percent))
 

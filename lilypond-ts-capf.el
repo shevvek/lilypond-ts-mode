@@ -25,6 +25,7 @@
 
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
+(require 'lilypond-ts-autodoc)
 
 ;;; The values of these variables are LilyPond specific, but the API is generic:
 
@@ -36,7 +37,7 @@
     (string-trim-left str "\\\\")))
 (defvar lilypond-ts--capf-properties
   `(:company-docsig
-    ,(and geiser-autodoc-use-docsig #'geiser-capf--company-docsig)
+    ,(and geiser-autodoc-use-docsig #'lilypond-ts--capf-autodoc)
     :company-doc-buffer #'geiser-capf--company-doc-buffer
     :company-location #'geiser-capf--company-location))
 

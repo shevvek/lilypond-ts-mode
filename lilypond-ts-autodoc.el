@@ -54,13 +54,20 @@
                 (propertize (geiser-syntax--display type)
                             'face 'italic))))))
 
+(defun lilypond-ts--capf-autodoc (id)
+  "Return documentation string for ID"
+  (when-let* ((name (string-trim-left id "\\\\"))
+              (sig (car (geiser-autodoc--get-signatures (list name) nil)))
+              ((cadr sig)))
+    (or (lilypond-ts--autodoc-str sig)
+        (geiser-autodoc--str* sig))))
+
 (defun lilypond-ts--music-autodoc-at-point (callback)
   (cl-loop with node0 = (treesit-node-at (point))
            for node = (if (treesit-node-match-p node0 "escaped_word")
                           node0
                         (treesit-search-forward node0 "escaped_word" t))
            then (treesit-search-forward node "escaped_word" t)
-           do (message "%s" node)
            for name = (string-trim-left (treesit-node-text node t) "\\\\")
            for sig = (car (geiser-autodoc--get-signatures (list name)
                                                           callback))

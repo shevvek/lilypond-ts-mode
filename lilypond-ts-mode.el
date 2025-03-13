@@ -21,6 +21,7 @@
 (require 'lilypond-ts-keywords)
 (require 'lilypond-ts-navigation)
 (require 'lilypond-ts-capf)
+(require 'lilypond-ts-font-lock)
 
 (defvar lilypond-ts-grammar-url
   "https://github.com/nwhetsell/tree-sitter-lilypond/")
@@ -97,132 +98,6 @@
      (catch-all parent 0)
      )))
 
-;;; Font lock
-
-(defun lilypond-ts--fontify-scheme (node override start end &rest _)
-  (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
-                                                   (treesit-node-end node))))
-    (dolist (range-interval scheme-ranges)
-      (apply #'geiser-syntax--fontify-syntax-region range-interval))))
-
-(defun lilypond-ts--font-lock-rules ()
-  `(
-    :default-language lilypond
-
-    :feature scheme
-    ((embedded_scheme_text) @lilypond-ts--fontify-scheme)
-
-    :feature comment
-    ((comment) @font-lock-comment-face)
-
-    :feature string
-    (((string) @font-lock-string-face)
-     ((string (escape_sequence) @font-lock-escape-face)))
-
-    :feature escaped-word
-    ((escaped_word) @font-lock-variable-use-face)
-
-    :feature object
-    (((symbol) @font-lock-type-face
-      (:match ,(eval `(rx bol (or ,@(lilypond-ts-list contexts)
-                                  ,@(lilypond-ts-list grobs))
-                          eol))
-              @font-lock-type-face))
-     ((escaped_word) @font-lock-type-face
-      (:match ,(eval `(rx bol "\\" (or ,@(lilypond-ts-list contexts))
-                          eol))
-              @font-lock-type-face)))
-
-    :feature object
-    :override prepend
-    (((symbol) @bold
-      (:match ,(eval `(rx bol (or ,@(lilypond-ts-list contexts))
-                          eol))
-              @bold))
-     ((escaped_word) @bold
-      (:match ,(eval `(rx bol "\\" (or ,@(lilypond-ts-list contexts))
-                          eol))
-              @bold)))
-
-    :feature number
-    (([(fraction)
-       (decimal_number)] @font-lock-number-face)
-     ((unsigned_integer) @bold
-      :anchor
-      (punctuation ".") @bold :*)
-     ((instrument_string_number) @font-lock-number-face))
-
-    :feature number
-    :override t
-    (((escaped_word) @bold
-      (:match ,(rx bol "\\" (or "breve" "longa" "maxima") eol)
-              @bold))
-     ((punctuation "*") @bold :anchor
-      [(fraction)
-       (decimal_number)
-       (unsigned_integer)] @bold))
-
-    :feature markup
-    :override t
-    (((escaped_word) @font-lock-function-call-face
-      (:match ,(eval `(rx bol "\\" (or "markup" "markuplist"
-                                       ,@(lilypond-ts-list markup-functions))
-                          eol))
-              @font-lock-function-call-face)))
-
-    :feature markup
-    :override prepend
-    (((escaped_word) @bold
-      (:match "^\\\\markup\\(list\\)?$" @bold)))
-
-    :feature expression
-    :override t
-    (((dynamic) @font-lock-builtin-face)
-     (((escaped_word) @font-lock-builtin-face
-       (:match  ,(eval `(rx bol (? "\\") ;; optional in order to match \^ and \-
-                            (or ,@(lilypond-ts-list post-events)
-                                ,@(lilypond-ts-list event-functions))
-                            eol))
-                @font-lock-builtin-face)))
-     ((punctuation ["-" "_" "^"]) @font-lock-builtin-face
-      :anchor
-      (punctuation ["!" "." "-" "^" "_" ">" "+"]) @font-lock-builtin-face)
-     ((punctuation ":") @font-lock-builtin-face
-      :anchor
-      (unsigned_integer) @font-lock-builtin-face))
-
-    :feature expression
-    :override prepend
-    (((dynamic) @bold)
-     ((punctuation ["-" "_" "^"]) @bold
-      :anchor
-      (punctuation ["!" "." "-" "^" "_" ">" "+"]) @bold)
-     ;; ((escaped_word) @bold
-     ;;  (:match  "\\\\[[:punct:]rsmfpz]+" @bold))
-     )
-
-    :feature keyword
-    :override t
-    (((escaped_word) @font-lock-keyword-face
-      (:match ,(eval `(rx bol "\\" (or "include" "maininput" "version"
-                                       ,@lilypond-ts--lexer-keywords
-                                       ,@lilypond-ts--other-keywords)
-                          eol))
-              @font-lock-keyword-face))
-     (((escaped_word) @font-lock-keyword-face
-       (:match "\\\\override" @font-lock-keyword-face))
-      :anchor [(property_expression)
-               (assignment_lhs)])
-     ((((escaped_word) @font-lock-keyword-face
-        (:match ,(rx bol "\\" "=" eol) @font-lock-keyword-face))
-       :anchor
-       (unsigned_integer) @font-lock-number-face)))
-
-    :feature phrasing
-    :override prepend
-    ((punctuation ["\\(" "\\)"]) @font-lock-variable-name-face @bold)
-    ))
-
 ;;; Keymap
 
 (defvar lilypond-ts-mode-map (make-sparse-keymap))
@@ -267,11 +142,8 @@
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        (lilypond-ts--font-lock-rules)))
-    (setq-local treesit-font-lock-feature-list
-                '((comment string escaped-word)
-                  (keyword scheme expression object markup)
-                  (number phrasing)))
-    (setq-local treesit-font-lock-level 3)
+    (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
+    (setq-local treesit-font-lock-level 4)
     (setq-local treesit-simple-indent-rules lilypond-ts-indent-rules)
     ;; (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)

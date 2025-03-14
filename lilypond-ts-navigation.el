@@ -88,17 +88,31 @@ order for expressions in separate files.")
 subdirectory in the same folder as the current buffer, or the same folder as
 optional arg FNAME. If there is not, read nav data from any .l files in that
 .nav folder and initialize a new watcher for that .nav folder, adding it to
-lilypond-ts--watchers."
-  (let ((dir (file-name-concat (file-name-directory (or fname
-                                                        (buffer-file-name)))
-                               ".nav")))
-    (unless (assoc dir lilypond-ts--watchers)
-      (when (file-exists-p dir)
-        (mapc #'lilypond-ts--read-nav-data
-              (directory-files dir t "^.*\\.l$")))
-      (push (cons dir
-                  (file-notify-add-watch dir '(change)
-                                         #'lilypond-ts--nav-watcher-callback))
+lilypond-ts--watchers. If the .nav subdirectory does not exist, watch the
+current directory for its creation and try again once it exists."
+  (when-let* ((fname (or fname (buffer-file-name)))
+              (file-dir (file-name-directory fname))
+              (nav-dir (file-name-concat file-dir ".nav"))
+              ((not (assoc nav-dir lilypond-ts--watchers))))
+    (if (file-exists-p nav-dir)
+        (progn
+          (mapc #'lilypond-ts--read-nav-data
+                (directory-files nav-dir t "^.*\\.l$"))
+          (push (cons nav-dir
+                      (file-notify-add-watch nav-dir '(change)
+                                             #'lilypond-ts--nav-watcher-callback))
+                lilypond-ts--watchers))
+      (push (cons file-dir
+                  (file-notify-add-watch
+                   file-dir '(change)
+                   (lambda (ev)
+                     (let ((ev-file (car (last ev))))
+                       (when (string-match-p ".nav"
+                                             ev-file)
+                         (lilypond-ts--init-nav-watcher file-dir)
+                         (setf (alist-get file-dir
+                                          lilypond-ts--watchers nil t)
+                               nil))))))
             lilypond-ts--watchers))))
 
 ;; Go to beginning/end of overlay depending on = or < moment

@@ -22,68 +22,70 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
 
-(defun lilypond-ts--fontify-scheme (node override start end &rest _)
-  (let ((scheme-ranges (lilypond-ts--scheme-ranges (treesit-node-start node)
-                                                   (treesit-node-end node))))
-    (dolist (range-interval scheme-ranges)
-      (apply #'geiser-syntax--fontify-syntax-region range-interval))))
 
 (defun lilypond-ts--fontify-scheme-defun (node override start end &rest _)
-  (let ((kw (treesit-node-get node '((parent 1)
-                                     (sibling -1 t)
-                                     (text t)))))
-    (treesit-fontify-with-override (treesit-node-start node)
-                                   (treesit-node-end node)
+  (when-let* ((kw (treesit-node-get node '((sibling -1 t)
+                                           (text t))))
+              (name-node (treesit-search-subtree node "scheme_symbol"))
+              (function-def? (or (treesit-node-match-p node "scheme_list")
+                                 (when-let (maybe-lambda (treesit-node-get node
+                                                           '((sibling 1 t)
+                                                             (child 0 t)
+                                                             (text t))))
+                                   (string-match-p "lambda" maybe-lambda)))))
+    (treesit-fontify-with-override (treesit-node-start name-node)
+                                   (treesit-node-end name-node)
                                    (pcase kw
                                      ((rx (or "syntax" "macro"))
                                       'font-lock-variable-name-face)
                                      ((rx (or "class" "module"
                                               "library" "record"))
-                                      'font-lock-type-name-face)
-                                     (_ 'font-lock-function-name-face))
+                                      'font-lock-type-face)
+                                     (_ (if function-def?
+                                            'font-lock-function-name-face
+                                          'font-lock-variable-name-face)))
                                    override start end)))
 
-(defun lilypond-ts--scheme-keyword-regexes (level)
-  (apply #'append
-         (take level `((,(rx "define" (or (not alpha) eol)) "let")
-                       ("syntax" "^call" "lambda")
-                       ("case" "cond" "^with")
-                       ("match" "regex")
-                       ("delay" "force")
-                       ("^import" "^include")
-                       ("^test" "assert")
-                       ("^eval" "fluid" "wind")
-                       ("map" "filter" "for-each" "fold" "reduce" "transduce")
-                       ("^make" "^extract")))))
+(defvar lilypond-ts--scheme-defun-regex
+  (rx "define" (or (not alpha) eol)))
 
-(defvar lilypond-ts--scheme-keywords
-  '("_i" "G_" "and" "and=>" "any" "apply" "begin" "compose" "const" "cut" "cute" "do" "else" "every"
-    "except" "export" "grob-transformer" "guard" "identity" "if" "markup" "not" "negate" "only" "or"
-    "parameterize" "promise" "receive" "rename" "require-extension" "unless"
-    "use-modules" "values" "when" "while"))
+(defvar lilypond-ts--scheme-kwd-free-regexes
+  '("let" "syntax" "lambda" "case" "cond" "match" "regex" "force" "assert"
+    "fluid" "wind" "map" "filter" "for-each" "fold" "reduce" "transduce"))
+
+(defvar lilypond-ts--scheme-kwd-start-regexes
+  '("call" "with" "import" "include" "test" "eval"))
+
+(defvar lilypond-ts--scheme-kwds
+  '("_i" "G_" "and" "and=>" "any" "apply" "begin" "compose" "const" "cut" "cute"
+    "delay" "delete" "delq" "delv" "do" "else" "every" "except" "export"
+    "grob-transformer" "guard" "identity" "if" "make" "make-engraver"
+    "make-performer" "make-relative" "make-translator" "markup" "memq" "memv"
+    "member" "not" "negate" "only" "or" "parameterize" "promise" "receive"
+    "remove" "rename" "require-extension" "reverse" "unless" "use-modules"
+    "values" "when" "while"))
+
+(defun lilypond-ts--scheme-keywords-rx ()
+  (eval `(rx (or (or (regex ,lilypond-ts--scheme-defun-regex)
+                     ,@lilypond-ts--scheme-kwd-free-regexes)
+                 (seq bol (? "ly:")
+                      (or ,@lilypond-ts--scheme-kwd-start-regexes
+                          (seq (or ,@lilypond-ts--scheme-kwds)
+                               (? "!") eol)))))))
 
 (defun lilypond-ts--scheme-font-lock-rules ()
-  `( :feature scheme-incantations
-     (((scheme_symbol) @font-lock-keyword-face
-       (:match ,(eval `(rx (or ,@(lilypond-ts--scheme-keyword-regexes 11)
-                               (seq bol (or ,@lilypond-ts--scheme-keywords)
-                                    eol))))
-               @font-lock-keyword-face)))
-
-     :feature scheme-defuns
-     :override t
+  `( :feature scheme-defuns
      ((scheme_list
-       :anchor ((scheme_symbol) @font-lock-keyword-face
-                (:match ,(rx (or (seq "define" (or (not alpha) eol))
-                                 "library"))
-                        @font-lock-keyword-face))
-       :anchor (scheme_list
-                :anchor (scheme_symbol) @lilypond-ts--fontify-scheme-defun))
-      (((scheme_symbol) @font-lock-keyword-face
-        (:match ,(rx "define" (or (not alpha) eol))
+       :anchor
+       ((scheme_symbol) @font-lock-keyword-face
+        (:match ,(rx (or (regex lilypond-ts--scheme-defun-regex) "library"))
                 @font-lock-keyword-face))
        :anchor
-       (scheme_symbol) @font-lock-variable-name-face))
+       [(scheme_symbol) (scheme_list)] @lilypond-ts--fontify-scheme-defun))
+
+     :feature scheme-incantations
+     (((scheme_symbol) @font-lock-keyword-face
+       (:match ,(lilypond-ts--scheme-keywords-rx) @font-lock-keyword-face)))
 
      :feature scheme-let
      ((((scheme_symbol) @font-lock-keyword-face
@@ -97,8 +99,8 @@
 
      :feature scheme-objects
      :override t
-     (((scheme_symbol) @font-lock-type-name-face
-       (:match "^<.+>$" @font-lock-type-name-face)))
+     (((scheme_symbol) @font-lock-type-face
+       (:match "^<.+>$" @font-lock-type-face)))
 
      :feature scheme-fluids
      :override t
@@ -123,8 +125,12 @@
        (:match "^'()$" @bold)))
 
      :feature scheme-constants
-     ([(scheme_boolean)
-       (scheme_character)] @font-lock-constant-face)
+     (([(scheme_boolean)
+        (scheme_character)] @font-lock-constant-face)
+      ;; it looks weird to have ## in different colors
+      ((embedded_scheme_prefix) @font-lock-constant-face
+       (embedded_scheme_text :anchor [(scheme_boolean)
+                                      (scheme_character)])))
 
      :feature scheme-numbers
      ((scheme_number) @font-lock-number-face)))
@@ -133,18 +139,18 @@
   `( :default-language lilypond
 
      ,@(lilypond-ts--scheme-font-lock-rules)
-     ;; :feature scheme
-     ;; ((embedded_scheme_text) @lilypond-ts--fontify-scheme)
 
      :feature comment
      (((comment) @font-lock-comment-face)
       ((scheme_comment) @font-lock-comment-face))
 
      :feature string
-     (((string) @font-lock-string-face)
-      ((scheme_string) @font-lock-string-face)
-      ((string (escape_sequence) @font-lock-escape-face))
-      ((scheme_string (scheme_escape_sequence) @font-lock-escape-face)))
+     ((string "\"" @font-lock-string-face)
+      (scheme_string "\"" @font-lock-string-face)
+      ([(string_fragment)
+        (scheme_string_fragment)] @font-lock-string-face)
+      ([(escape_sequence)
+        (scheme_escape_sequence)] @font-lock-escape-face))
 
      :feature escaped-word
      ((escaped_word) @font-lock-variable-use-face)

@@ -83,7 +83,7 @@
        :anchor
        [(scheme_symbol) (scheme_list)] @lilypond-ts--fontify-scheme-defun))
 
-     :feature scheme-incantations
+     :feature scheme-words
      (((scheme_symbol) @font-lock-keyword-face
        (:match ,(lilypond-ts--scheme-keywords-rx) @font-lock-keyword-face)))
 
@@ -93,7 +93,7 @@
        :anchor
        (scheme_symbol) @font-lock-function-name-face))
 
-     :feature scheme-keywords
+     :feature scheme-keys
      :override t
      ((scheme_keyword) @font-lock-builtin-face)
 
@@ -258,12 +258,12 @@
 
 (defvar lilypond-ts--font-lock-features
   '(( comment string escaped-word
-      scheme-keywords scheme-objects)
+      scheme-keys scheme-defuns scheme-let scheme-objects)
     ( keyword expression object markup
-      scheme-defuns scheme-let)
+      scheme-words)
     ( number phrasing
-      scheme-incantations scheme-constants scheme-numbers)
-    ( scheme-predicates scheme-side-effects scheme-fluids scheme-punctuation)))
+      scheme-constants scheme-numbers scheme-fluids)
+    ( scheme-predicates scheme-side-effects scheme-punctuation)))
 
 (provide 'lilypond-ts-font-lock)
 ;;; lilypond-ts-font-lock.el ends here

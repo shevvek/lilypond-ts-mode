@@ -41,5 +41,34 @@
                                         "lilypond-ts-test--indent.erts")
                       #'lilypond-ts-test--indent-test))
 
+(defun lilypond-ts-test--keyword-setup ()
+  (dolist (key lilypond-ts--completion-categories)
+    (when-let ((kw-list (intern-soft (concat "lilypond-ts--"
+                                             (symbol-name (car key))))))
+      (make-local-variable kw-list))))
+
+(defun lilypond-ts-test--capf-test-setup ()
+  (lilypond-ts-test--parser-setup)
+  (lilypond-ts-test--keyword-setup)
+  ;; need to deal with REPL
+  (make-local-variable 'lilypond-ts--treesit-capf-rules)
+  (make-local-variable 'lilypond-ts--treesit-completion-rules)
+  (lilypond-ts-mode))
+
+;; based on elisp--test-completions
+(defun lilypond-ts-test--list-completions ()
+  (let ((data (lilypond-ts--treesit-capf)))
+    (all-completions (buffer-substring (nth 0 data) (nth 1 data))
+                     (nth 2 data)
+                     (plist-get (nthcdr 3 data) :predicate))))
+
+(ert-deftest lilypond-ts-test--escaped-word-capf ()
+  (with-temp-buffer
+    (lilypond-ts-test--capf-test-setup)
+    (insert "\\tra")
+    (let ((comps (lilypond-ts-test--list-completions)))
+      (should (member "transpose" comps))
+      (should-not (member "transpose-array" comps)))))
+
 (provide 'lilypond-ts-tests)
 ;;; lilypond-ts-tests.el ends here

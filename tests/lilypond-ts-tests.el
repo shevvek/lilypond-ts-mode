@@ -70,5 +70,29 @@
       (should (member "transpose" comps))
       (should-not (member "transpose-array" comps)))))
 
+(defun lilypond-ts-test--generate-font-lock-assertions (file)
+  "Annotate FILE with ERT font lock assertions using FILE's default mode."
+  (interactive "f")
+  (with-current-buffer (find-file-noselect file)
+    (when (featurep 'aggressive-indent)
+      (aggressive-indent-mode -1))
+    (electric-indent-local-mode -1)
+    (goto-char (point-min))
+    (while (not (eobp))
+      (goto-char (line-end-position))
+      (cl-loop with line = (buffer-substring (line-beginning-position)
+                                             (line-end-position))
+               for (beg . end) being the intervals of line property 'face
+               for face = (get-char-property beg 'face line)
+               unless (string-blank-p (substring line beg end))
+               do (insert (cl-case beg
+                            (0 (format "\n%%%% <- %s" face))
+                            (1 (format "\n %%%% <- %s" face))
+                            (t (format "\n%%%%%s^ %s"
+                                       (string-pad "" (- beg 2) ?\s)
+                                       face)))))
+      (forward-line 1))
+    (save-buffer)))
+
 (provide 'lilypond-ts-tests)
 ;;; lilypond-ts-tests.el ends here

@@ -94,5 +94,8 @@
       (forward-line 1))
     (save-buffer)))
 
+(ert-font-lock-deftest-file lilypond-ts-test--font-lock
+    lilypond-ts-mode "font-lock-test.ly")
+
 (provide 'lilypond-ts-tests)
 ;;; lilypond-ts-tests.el ends here

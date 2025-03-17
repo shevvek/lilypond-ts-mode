@@ -136,6 +136,13 @@
     (unless (multisession-value lilypond-ts--lily-installs-alist)
       (lilypond-ts-find-installs))
     (lilypond-ts--ensure-repl)
+
+    (setq-local comment-start "%")
+    (setq-local comment-start-skip "[%;]+{? *")
+    (setq-local comment-end "")
+    (setq-local block-comment-start "%{")
+    (setq-local block-comment-end "%}")
+
     (setq-local treesit-thing-settings lilypond-ts--thing-settings)
     (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
     (setq-local treesit-defun-tactic 'nested)
@@ -151,6 +158,7 @@
     (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
     (treesit-major-mode-setup)
     (setq-local lisp-indent-function #'scheme-indent-function)
+    ;; to do: set comment-use-syntax
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
     (geiser-autodoc-mode 1)
     (lilypond-ts--treesit-configure-capf lilypond-ts--completion-categories

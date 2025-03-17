@@ -22,9 +22,6 @@
 (require 'lilypond-ts-mode)
 (require 'ert)
 
-(defvar lilypond-ts-test-location
-  (file-name-concat lilypond-ts-location "tests"))
-
 (defun lilypond-ts-test--parser-setup ()
   (or (treesit-parser-list (current-buffer) 'lilypond)
       (treesit-parser-create 'lilypond)))
@@ -37,8 +34,7 @@
 
 (ert-deftest lilypond-ts--indent-tests ()
   (skip-unless (treesit-ready-p 'lilypond))
-  (ert-test-erts-file (file-name-concat lilypond-ts-test-location
-                                        "lilypond-ts-test--indent.erts")
+  (ert-test-erts-file (ert-resource-file "indent.erts")
                       #'lilypond-ts-test--indent-test))
 
 (defun lilypond-ts-test--keyword-setup ()

@@ -1,0 +1,123 @@
+Name: seq-block-indent
+=-=
+{
+  c'1
+}
+=-=-=
+
+Name: simul-block-indent
+=-=
+<<
+  \A
+>>
+=-=-=
+
+Name: seq->simul-block-indent
+=-=
+{
+  <<
+    \A
+    \\
+    \B
+  >>
+}
+=-=-=
+
+Name: simul->seq-block-indent
+=-=
+<<
+  {
+    c'1
+  }
+  {
+    d'1
+  }
+>>
+=-=-=
+
+Name: seq-simul-seq-simul-block-indent
+=-=
+{
+  <<
+    {
+      c'1
+      d'1
+      <<
+        \A
+      >>
+      e'1
+    }
+  >>
+}
+=-=-=
+
+Name: simul-simul-simul-seq-block-indent
+=-=
+<<
+  <<
+    <<
+      \new Staff {
+        e'1
+      }
+    >>
+  >>
+>>
+=-=-=
+
+Name: seq-seq-seq-block-indent
+=-=
+\relative {
+  c'4
+  {
+    f1
+    {
+      g1
+    }
+  }
+}
+=-=-=
+
+Name: scheme-indent
+=-=
+#(define (baz)
+   "Line wrapped
+docstring."
+   (let ((foo (+ 42
+                 69)))
+     (ly:message
+      "~a" foo))
+=-=-=
+
+Name: offset-scheme-indent
+=-=
+baz =
+  #(define-void-function () ()
+     "Line wrapped
+docstring."
+       (let ((foo (+ 42
+                     69)))
+         (ly:message
+          "~a" foo)))
+=-=-=
+
+Name: hanging-assignment-indent
+=-=
+foo =
+  "baz"
+=-=-=
+
+Name: hanging-scheme-indent
+=-=
+
+\paper {
+  baz =
+    #(define-void-function () ()
+       "Line wrapped
+docstring."
+       (let ((foo (+ 42
+                     69)))
+         (ly:message
+          "~a" foo)))
+  bar = 3
+}
+=-=-=

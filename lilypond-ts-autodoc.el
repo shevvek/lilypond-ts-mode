@@ -68,6 +68,7 @@
                           node0
                         (treesit-search-forward node0 "escaped_word" t))
            then (treesit-search-forward node "escaped_word" t)
+           always node
            for name = (string-trim-left (treesit-node-text node t) "\\\\")
            ;; passing the callback through leads to output via geiser's format
            ;; this seems hard to patch since update-signatures duplicates path
@@ -91,9 +92,32 @@
       (geiser-autodoc--autodoc (geiser-syntax--scan-sexps) callback)
     (lilypond-ts--music-autodoc-at-point)))
 
-;; The alternative here is literally copying Geiser's top layer of autodoc code.
-(advice-add #'geiser-autodoc--autodoc-at-point
-            :override #'lilypond-ts--autodoc-at-point)
+;;; Code below is more or less verbatim from geiser-autodoc 0.31.1
+
+(defun lilypond-ts--eldoc-function (&optional callback)
+  (ignore-errors
+    (when (not (geiser-autodoc--inhibit))
+      (lilypond-ts--autodoc-at-point (or callback 'eldoc-message)))))
+
+(defun lilypond-ts-autodoc-show ()
+  "Show the signature or value of the symbol at point in the echo area."
+  (interactive)
+  (message (lilypond-ts--autodoc-at-point nil)))
+
+(define-minor-mode lilypond-ts-autodoc-mode
+  "Autodoc minor mode for LilyPond.
+
+Note that `lilypond-ts-autodoc-mode' is built on top of `geiser-autodoc' and
+respects `geiser-autodoc--inhibit-function'."
+  :init-value nil
+  :lighter "/A"
+  (if lilypond-ts-autodoc-mode
+      (add-hook 'eldoc-documentation-functions
+                #'lilypond-ts--eldoc-function nil t)
+    (remove-hook 'eldoc-documentation-functions
+                 #'lilypond-ts--eldoc-function t))
+  (eldoc-mode (if lilypond-ts-autodoc-mode 1 -1))
+  (setq-local eldoc-minor-mode-string nil))
 
 (provide 'lilypond-ts-autodoc)
 ;;; lilypond-ts-autodoc.el ends here

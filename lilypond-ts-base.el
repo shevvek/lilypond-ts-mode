@@ -64,8 +64,17 @@ of Lilypond."
                                            "lilypond_program"))))
 
 (defun lilypond-ts--scheme-at-p (&optional pos)
-  (treesit-node-match-p (treesit-node-at (or pos (point)) nil t)
-                        "scheme"))
+  (let ((node (treesit-node-at (or pos (point)) nil t)))
+    (and (treesit-node-match-p node "scheme")
+         (not (treesit-node-match-p node (regexp-opt
+                                          '("scheme_embedded_lilypond"
+                                            "embedded_scheme_prefix")))))))
+
+(defun lilypond-ts--comment-start-at-point (&optional pos)
+  (if (lilypond-ts--scheme-at-p (min (1+ (or pos (point)))
+                                     (point-max)))
+      ";"
+    "%"))
 
 (provide 'lilypond-ts-base)
 ;;; lilypond-ts-base.el ends here

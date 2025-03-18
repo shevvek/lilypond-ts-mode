@@ -146,15 +146,12 @@ strings."
                                              (line-end-position))
                for (beg . end) being the intervals of line property 'face
                for face = (get-char-property beg 'face line)
-               for comment-start = (if (lilypond-ts--scheme-at-p (min (1+ (point))
-                                                                      (point-max)))
-                                       ";;"
-                                     "%%")
+               for comment-start = (lilypond-ts--comment-start-at-point)
                unless (string-blank-p (substring line beg end))
                do (insert (cl-case beg
-                            (0 (format "\n%s <- %s" comment-start face))
-                            (1 (format "\n %s <- %s" comment-start face))
-                            (t (format "\n%s%s^ %s" comment-start
+                            (0 (format "\n%1$s%1$s <- %s" comment-start face))
+                            (1 (format "\n %1$s%1$s <- %s" comment-start face))
+                            (t (format "\n%1$s%1$s%s^ %s" comment-start
                                        (string-pad "" (- beg 2) ?\s)
                                        face)))))
       (forward-line 1))

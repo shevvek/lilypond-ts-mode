@@ -180,38 +180,38 @@ return value.
 
 Note that the data structures described here are the compiled forms. Users
 should generally not directly write mask lambdas."
-  (cl-loop
-   with node = (treesit-node-on (1- (point)) (point))
-   for (query-pred masks post-process) in lilypond-ts--treesit-capf-rules
-   for captures = (funcall query-pred node)
-   when captures
-   thereis (cl-loop
-            for mask in masks
-            for words = (cl-loop
-                         ;; This looks like a lot of nested iteration, but in
-                         ;; practice, the most common case will be mask exactly
-                         ;; the same length as captures => only one step.
-                         ;; query pred should strive to return the minimum nodes
-                         for tail on captures until (> (length mask)
-                                                       (length tail))
-                         thereis (cl-loop
-                                  with home = nil
-                                  for (key . neighbor) in tail
-                                  for (pred make-table) in mask
-                                  for text = (treesit-node-text neighbor t)
-                                  unless (treesit-node-eq node neighbor)
-                                  if (funcall pred text)
-                                  collect text into friends
-                                  else return nil end
-                                  else do (setf home make-table) end
-                                  finally return (apply home friends)))
-            when words collect words into tables
-            finally return `(,(treesit-node-start node)
-                             ,(treesit-node-end node)
-                             ,(funcall (or post-process #'identity)
-                                       (apply #'completion-table-merge
-                                              tables))
-                             . ,lilypond-ts--capf-properties))))
+  (when (treesit-parser-list)
+    (cl-loop
+     with node = (treesit-node-on (1- (point)) (point))
+     for (query-pred masks post-process) in lilypond-ts--treesit-capf-rules
+     for captures = (funcall query-pred node)
+     when captures
+     thereis (cl-loop
+              for mask in masks
+              for words = (cl-loop
+                           ;; In practice, the most common case should be mask
+                           ;; and captures of equal length => only one step.
+                           ;; query-pred should strive to return minimal nodes.
+                           for tail on captures until (> (length mask)
+                                                         (length tail))
+                           thereis (cl-loop
+                                    with home = nil
+                                    for (key . neighbor) in tail
+                                    for (pred make-table) in mask
+                                    for text = (treesit-node-text neighbor t)
+                                    unless (treesit-node-eq node neighbor)
+                                    if (funcall pred text)
+                                    collect text into friends
+                                    else return nil end
+                                    else do (setf home make-table) end
+                                    finally return (apply home friends)))
+              when words collect words into tables
+              finally return `(,(treesit-node-start node)
+                               ,(treesit-node-end node)
+                               ,(funcall (or post-process #'identity)
+                                         (apply #'completion-table-merge
+                                                tables))
+                               . ,lilypond-ts--capf-properties)))))
 
 ;;; LilyPond specific configuration begins here:
 
@@ -368,6 +368,17 @@ that allow nesting."
      ((scheme-identifiers)))
     ("string_fragment"
      ((filename)))))
+
+(define-minor-mode lilypond-ts-capf-mode
+  "Capf minor mode for LilyPond."
+  :init-value nil
+  :lighter "/C"
+  (if lilypond-ts-capf-mode
+      (progn
+        (lilypond-ts--treesit-configure-capf lilypond-ts--completion-categories
+                                             lilypond-ts--capf-rules)
+        (add-hook 'completion-at-point-functions #'lilypond-ts--treesit-capf nil t))
+    (remove-hook 'completion-at-point-functions #'lilypond-ts--treesit-capf t)))
 
 (provide 'lilypond-ts-capf)
 ;;; lilypond-ts-capf.el ends here

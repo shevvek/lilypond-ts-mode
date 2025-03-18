@@ -151,9 +151,7 @@
     ;; to do: set comment-use-syntax
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
     (lilypond-ts-autodoc-mode 1)
-    (lilypond-ts--treesit-configure-capf lilypond-ts--completion-categories
-                                         lilypond-ts--capf-rules)
-    (add-hook 'completion-at-point-functions #'lilypond-ts--treesit-capf nil t)
+    (lilypond-ts-capf-mode 1)
     (lilypond-ts-navigation-mode 1)))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))

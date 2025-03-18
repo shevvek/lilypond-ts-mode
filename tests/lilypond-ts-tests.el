@@ -23,6 +23,8 @@
 (require 'ert)
 (require 'ert-x)
 
+;;; Indent
+
 (defun lilypond-ts-test--parser-setup ()
   (or (treesit-parser-list (current-buffer) 'lilypond)
       (treesit-parser-create 'lilypond)))
@@ -42,6 +44,8 @@
   (skip-unless (treesit-ready-p 'lilypond))
   (ert-test-erts-file (ert-resource-file "indent.erts")
                       #'lilypond-ts-test--indent-test))
+
+;;; Capf
 
 (defun lilypond-ts-test--keyword-setup ()
   (dolist (key lilypond-ts--completion-categories)
@@ -131,6 +135,42 @@ strings."
 (ert-deftest lilypond-ts-test--scheme-capf ()
   (lilypond-ts--capf-test
    ("#(tra" ")") ("transpose-array" "transpose")))
+
+;;; Autodoc
+
+(defmacro lilypond-ts--autodoc-test (text correct)
+  "Insert TEXT in a temporary buffer, then check that `lilypond-ts-mode'
+autodoc matches the literal string CORRECT."
+  `(with-temp-buffer
+     (lilypond-ts-test--parser-setup)
+     (lilypond-ts--ensure-repl)
+     (insert ,(if (stringp text) text (car text)))
+     ,(when (listp text)
+        `(save-excursion (insert ,(cadr text))))
+     (should (string-equal ,correct (lilypond-ts--eldoc-function)))))
+
+(defconst lilypond-ts-test--ref-music-function-autodoc-text
+  #("partCombine: [number-pair? chord-range = (0 . 8)] ly:music? part1 ly:music? part2 => ly:music?"
+    0 11 (face geiser-font-lock-autodoc-identifier) 14 26 (face italic) 27 38
+    (face geiser-font-lock-autodoc-current-arg) 50 59 (face italic) 60 65
+    (face geiser-font-lock-autodoc-current-arg) 66 75 (face italic) 76 81
+    (face geiser-font-lock-autodoc-current-arg) 85 94 (face italic)))
+
+(defconst lilypond-ts-test--ref-markup-function-autodoc-text
+  #("with-string-transformer: procedure? transformer cheap-markup? arg => markup?"
+    0 23 (face geiser-font-lock-autodoc-identifier) 25 35 (face italic) 36 47
+    (face geiser-font-lock-autodoc-current-arg) 48 61 (face italic) 62 65
+    (face geiser-font-lock-autodoc-current-arg) 69 76 (face italic)))
+
+(ert-deftest lilypond-ts-test--music-function-autodoc ()
+  (lilypond-ts--autodoc-test "\\partCombine"
+                             lilypond-ts-test--ref-music-function-autodoc-text))
+
+(ert-deftest lilypond-ts-test--markup-function-autodoc ()
+  (lilypond-ts--autodoc-test "\\markup\\with-string-transformer"
+                             lilypond-ts-test--ref-markup-function-autodoc-text))
+
+;;; Font lock
 
 (defun lilypond-ts-test--generate-font-lock-assertions (file)
   "Annotate FILE with ERT font lock assertions using FILE's default mode."

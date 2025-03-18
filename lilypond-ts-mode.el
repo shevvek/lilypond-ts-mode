@@ -115,16 +115,6 @@
             [remap geiser-eval-region] #'lilypond-ts-eval-region)
 (define-key lilypond-ts-mode-map
             (kbd "C-c C-r") #'lilypond-ts-eval-region)
-(define-key lilypond-ts-mode-map
-            [remap forward-sentence] #'lilypond-ts-forward-moment)
-(define-key lilypond-ts-mode-map
-            [remap backward-sentence] #'lilypond-ts-backward-moment)
-(define-key lilypond-ts-mode-map
-            [remap forward-paragraph] #'lilypond-ts-forward-same-moment)
-(define-key lilypond-ts-mode-map
-            [remap backward-paragraph] #'lilypond-ts-backward-same-moment)
-(define-key lilypond-ts-mode-map
-            (kbd "C-c C-n") 'lilypond-ts-set-goal-moment)
 
 ;;; Mode-init
 
@@ -164,7 +154,7 @@
     (lilypond-ts--treesit-configure-capf lilypond-ts--completion-categories
                                          lilypond-ts--capf-rules)
     (add-hook 'completion-at-point-functions #'lilypond-ts--treesit-capf nil t)
-    (add-hook 'lilypond-ts-mode-hook #'lilypond-ts--init-nav-watcher)))
+    (lilypond-ts-navigation-mode 1)))
 
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ily\\'" . lilypond-ts-mode))

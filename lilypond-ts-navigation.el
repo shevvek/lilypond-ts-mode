@@ -81,7 +81,8 @@ order for expressions in separate files.")
   (let ((ev-file (car (last ev))))
     (when (string-equal "l" (file-name-extension ev-file))
       (message "Reloading navigation data from changed file: %s" ev-file)
-      (lilypond-ts--read-nav-data ev-file))))
+      (with-demoted-errors "Error reading navigation data: %S"
+        (lilypond-ts--read-nav-data ev-file)))))
 
 (defun lilypond-ts--init-nav-watcher (&optional fname)
   "Check whether there is already an entry in lilypond-ts--watchers for a .nav
@@ -114,6 +115,24 @@ current directory for its creation and try again once it exists."
                                           lilypond-ts--watchers nil t)
                                nil))))))
             lilypond-ts--watchers))))
+
+(defun lilypond-ts--maybe-remove-nav-watcher (&optional fname)
+  "If there are no buffers visiting files in the same directory as the current
+file (including that file) with `lilypond-ts-navigation-mode' active, remove any
+lilypond-ts--watchers active in that directory. With optional argument FNAME,
+use that instead of the current buffer filename."
+  (when-let* ((fname (or fname (buffer-file-name)))
+              (file-dir (file-name-directory fname))
+              ((cl-loop for b being the buffers
+                        when (buffer-local-value lilypond-ts-navigation-mode b)
+                        when (buffer-file-name b)
+                        never (file-equal-p file-dir (file-name-directory
+                                                      (buffer-file-name b)))))
+              (nav-dir (file-name-concat file-dir ".nav")))
+    (file-notify-rm-watch (alist-get file-dir lilypond-ts--watchers))
+    (setf (alist-get file-dir lilypond-ts--watchers nil t) nil)
+    (file-notify-rm-watch (alist-get nav-dir lilypond-ts--watchers))
+    (setf (alist-get nav-dir lilypond-ts--watchers nil t) nil)))
 
 ;; Go to beginning/end of overlay depending on = or < moment
 (defun lilypond-ts-forward-same-moment (&optional n)
@@ -193,6 +212,24 @@ expression. With prefix argument N, do it N times. For negative arg -N, move
 forwards."
   (interactive "p")
   (lilypond-ts-forward-moment (- n)))
+
+(defvar-keymap lilypond-ts-navigation-mode-map
+  "<remap> <forward-sentence>" #'lilypond-ts-forward-moment
+  "<remap> <backward-sentence>" #'lilypond-ts-backward-moment
+  "<remap> <forward-paragraph>" #'lilypond-ts-forward-same-moment
+  "<remap> <backward-paragraph>" #'lilypond-ts-backward-same-moment
+  "C-c C-n" 'lilypond-ts-set-goal-moment)
+
+(define-minor-mode lilypond-ts-navigation-mode
+  "Minor mode enabling rhythm-aware navigation in LilyPond code.
+
+When enabled, new or refreshed musical metadata will automatically be loaded on
+running `lilypond-ts-compile'."
+  :init-value nil
+  :lighter "/N"
+  (if lilypond-ts-navigation-mode
+      (lilypond-ts--init-nav-watcher)
+    (lilypond-ts--maybe-remove-nav-watcher)))
 
 (provide 'lilypond-ts-navigation)
 ;;; lilypond-ts-navigation.el ends here

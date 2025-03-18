@@ -64,13 +64,73 @@
                      (nth 2 data)
                      (plist-get (nthcdr 3 data) :predicate))))
 
+(defmacro lilypond-ts--capf-test (text yes &optional no)
+  "Insert TEXT in a temporary buffer, then check that `lilypond-ts-mode'
+completions include YES and do not include NO. TEXT may be either a string or a
+list (BEFORE-POINT AFTER-POINT). YES and NO may be either strings or lists of
+strings."
+  `(with-temp-buffer
+     (lilypond-ts-test--capf-test-setup)
+     (insert ,(if (stringp text) text (car text)))
+     ,(when (listp text)
+        `(save-excursion (insert ,(cadr text))))
+     (let ((comps (lilypond-ts-test--list-completions)))
+       ,@(cl-loop for c in (ensure-list yes)
+                  collect `(should (member ,c comps)))
+       ,@(cl-loop for c in (ensure-list no)
+                  collect `(should-not (member ,c comps))))))
+
 (ert-deftest lilypond-ts-test--escaped-word-capf ()
-  (with-temp-buffer
-    (lilypond-ts-test--capf-test-setup)
-    (insert "\\tra")
-    (let ((comps (lilypond-ts-test--list-completions)))
-      (should (member "transpose" comps))
-      (should-not (member "transpose-array" comps)))))
+  (lilypond-ts--capf-test
+   "\\tra" "transpose" "transpose-array"))
+(ert-deftest lilypond-ts-test--clef-capf ()
+  (lilypond-ts--capf-test
+   "\\clef t" "treble" "transpose"))
+(ert-deftest lilypond-ts-test--language-capf ()
+  (lilypond-ts--capf-test
+   "\\language e" "english" "endSpanners"))
+(ert-deftest lilypond-ts-test--translator-capf ()
+  (lilypond-ts--capf-test
+   "\\consists V" "Volta_engraver" ("Voice" "VoiceFollower")))
+(ert-deftest lilypond-ts-test--context-spec-capf ()
+  (lilypond-ts--capf-test
+   "\\context S" "Staff" ("StaffGrouper" "Slur_engraver")))
+(ert-deftest lilypond-ts-test--repeat-capf ()
+  (lilypond-ts--capf-test
+   "\\repeat u" "unfold" "undo"))
+(ert-deftest lilypond-ts-test--music-type-cmd-capf ()
+  (lilypond-ts--capf-test
+   "\\markupMap S" "SequentialMusic" ("Staff" "Slur" "Staff_performer")))
+(ert-deftest lilypond-ts-test--music-properties-capf ()
+  (lilypond-ts--capf-test
+   "MultiMeasureRestMusic.i" "iterator-ctor" "ignore-collision"))
+(ert-deftest lilypond-ts-test--set-context-capf ()
+  (lilypond-ts--capf-test
+   "\\set D" "Dynamics" "DynamicText"))
+(ert-deftest lilypond-ts-test--set-property-capf ()
+  (lilypond-ts--capf-test
+   "\\set i" "instrumentName" "ignore-collision"))
+(ert-deftest lilypond-ts-test--context-property-capf ()
+  (lilypond-ts--capf-test
+   "Voice.k" "keepAliveInterfaces" "knee"))
+(ert-deftest lilypond-ts-test--override-cmd-capf ()
+  (lilypond-ts--capf-test
+   "\\override D" ("DynamicText" "Dynamics")))
+(ert-deftest lilypond-ts-test--grob-properties-capf ()
+  (lilypond-ts--capf-test
+   "NoteHead.s" "stencil" ("slashedGrace" "start-callback")))
+(ert-deftest lilypond-ts-test--grob-properties-capf ()
+  (lilypond-ts--capf-test
+   "Voice.NoteHead.s" "stencil" ("slashedGrace" "start-callback")))
+(ert-deftest lilypond-ts-test--nested-grob-properties-capf ()
+  (lilypond-ts--capf-test
+   ("Staff.TextSpanner.b" ".left") "bound-details" "bend-me"))
+(ert-deftest lilypond-ts-test--grob-capf ()
+  (lilypond-ts--capf-test
+   "Voice.N" "NoteHead" "Note_heads_engraver"))
+(ert-deftest lilypond-ts-test--scheme-capf ()
+  (lilypond-ts--capf-test
+   ("#(tra" ")") ("transpose-array" "transpose")))
 
 (defun lilypond-ts-test--generate-font-lock-assertions (file)
   "Annotate FILE with ERT font lock assertions using FILE's default mode."

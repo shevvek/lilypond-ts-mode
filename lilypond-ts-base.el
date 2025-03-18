@@ -59,12 +59,9 @@ of Lilypond."
     stripes))
 
 (defun lilypond-ts--lang-block-parent (node &rest _)
-  (treesit-parent-until node
-                        (lambda (n)
-                          (string-match-p (rx (or "embedded_scheme_text"
-                                                  "scheme_embedded_lilypond"
-                                                  "lilypond_program"))
-                                          (treesit-node-type n)))))
+  (treesit-parent-until node (regexp-opt '("embedded_scheme_text"
+                                           "scheme_embedded_lilypond"
+                                           "lilypond_program"))))
 
 (defun lilypond-ts--scheme-at-p (&optional pos)
   (treesit-node-match-p (treesit-node-at (or pos (point)) nil t)

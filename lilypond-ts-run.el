@@ -144,6 +144,10 @@ prefix argument RESET, clear and refresh the list."
                                 (when (= 0 (process-exit-status proc))
                                   (lilypond-ts--index-lily-install bin str))))))))
 
+(defun lilypond-ts-refresh-installs ()
+  (interactive)
+  (lilypond-ts-find-installs t))
+
 (defun lilypond-ts--closest-compatible-lily (ver)
   "Return the entry in `lilypond-ts--lily-installs-alist' with the minimum
 version >= to VER. If VER is nil, return the highest installed version."
@@ -264,11 +268,19 @@ Compilation uses Emacs `compile' but does not save the command."
       ;; TODO: provide a transient interface for managing LilyPond option flags
       (compile compile-command))))
 
+(defun lilypond-ts-compile-score ()
+  (interactive)
+  (lilypond-ts--compile-cmd 'score))
+
+(defun lilypond-ts-compile-parts ()
+  (interactive)
+  (lilypond-ts--compile-cmd 'parts))
+
 (defun lilypond-ts-compile (&optional cmd)
   "Compile the current buffer using the closest compatible LilyPond version
 available. If `master' is defined, compile that file instead. Use argument set
 `score', or with universal prefix argument, `parts'."
-  (interactive)
+  (interactive "P")
   (lilypond-ts--compile-cmd (if cmd 'parts 'score)))
 
 (provide 'lilypond-ts-run)

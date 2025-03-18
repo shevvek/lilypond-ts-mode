@@ -100,21 +100,29 @@
 
 ;;; Keymap
 
-(defvar lilypond-ts-mode-map (make-sparse-keymap))
-(define-key lilypond-ts-mode-map
-            (kbd "C-c C-c") #'lilypond-ts-compile)
-(define-key lilypond-ts-mode-map
-            [remap eval-buffer] #'lilypond-ts-eval-buffer)
-(define-key lilypond-ts-mode-map
-            [remap geiser-eval-buffer] #'lilypond-ts-eval-buffer)
-(define-key lilypond-ts-mode-map
-            (kbd "C-c C-b") #'lilypond-ts-eval-buffer)
-(define-key lilypond-ts-mode-map
-            [remap eval-region] #'lilypond-ts-eval-region)
-(define-key lilypond-ts-mode-map
-            [remap geiser-eval-region] #'lilypond-ts-eval-region)
-(define-key lilypond-ts-mode-map
-            (kbd "C-c C-r") #'lilypond-ts-eval-region)
+(defvar-keymap lilypond-ts-mode-map
+  "C-c C-c" #'lilypond-ts-compile-score
+  "C-c C-S-c" #'lilypond-ts-compile-parts
+  "C-c C-b" #'lilypond-ts-eval-buffer
+  "<remap> <geiser-eval-buffer>" #'lilypond-ts-eval-buffer
+  "<remap> <eval-buffer>" #'lilypond-ts-eval-buffer
+  "C-c C-r" #'lilypond-ts-eval-region
+  "<remap> <geiser-eval-region>" #'lilypond-ts-eval-region
+  "<remap> <eval-region>" #'lilypond-ts-eval-region
+  :menu '("LilyPond"
+          ["Compile (score)" lilypond-ts-compile-score
+           :help "Compile, generating rhythmic navigation metadata."]
+          ["Compile (parts)" lilypond-ts-compile-parts
+           :help "Compile, without generating rhythmic navigation metadata."]
+          "--"
+          ["Eval buffer" lilypond-ts-eval-buffer
+           :help "Eval buffer in the LilyPond REPL."]
+          ["Eval region" lilypond-ts-eval-region
+           :help "Eval region in the LilyPond REPL."]
+          ["Restart LilyPond REPL" geiser-repl-restart-repl]
+          "--"
+          ["Find new LilyPond installs" lilypond-ts-find-installs]
+          ["Refresh LilyPond installs" lilypond-ts-refresh-installs]))
 
 ;;; Mode-init
 

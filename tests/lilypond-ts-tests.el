@@ -21,6 +21,7 @@
 
 (require 'lilypond-ts-mode)
 (require 'ert)
+(require 'ert-x)
 
 (defun lilypond-ts-test--parser-setup ()
   (or (treesit-parser-list (current-buffer) 'lilypond)
@@ -30,7 +31,12 @@
   (lilypond-ts-test--parser-setup)
   (setq-local treesit-simple-indent-rules
               (treesit--indent-rules-optimize lilypond-ts-indent-rules))
-  (treesit-indent-region (point-min) (point-max)))
+  (setq-local indent-line-function #'treesit-indent)
+  (setq-local indent-region-function #'treesit-indent-region)
+  (setq-local lisp-indent-function #'scheme-indent-function)
+  (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
+  (indent-region-line-by-line (point-min) (point-max))
+  (remove-list-of-text-properties (point-min) (point-max) '(syntax-table)))
 
 (ert-deftest lilypond-ts--indent-tests ()
   (skip-unless (treesit-ready-p 'lilypond))

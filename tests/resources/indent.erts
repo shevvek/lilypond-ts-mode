@@ -77,6 +77,18 @@ Name: seq-seq-seq-block-indent
 }
 =-=-=
 
+Name: nested-lilypond-scheme-indent
+=-=
+markup-notehead =
+  #(define-music-function (m) (markup?)
+     #{
+       \override NoteHead.stencil = #(lambda (grob)
+                                       (grob-interpret-markup grob #{
+                                         \markup \rotate #90 m
+                                       #}))
+     #})
+=-=-=
+
 Name: scheme-indent
 =-=
 #(define (baz)
@@ -85,7 +97,7 @@ docstring."
    (let ((foo (+ 42
                  69)))
      (ly:message
-      "~a" foo))
+      "~a" foo)))
 =-=-=
 
 Name: offset-scheme-indent
@@ -94,10 +106,10 @@ baz =
   #(define-void-function () ()
      "Line wrapped
 docstring."
-       (let ((foo (+ 42
-                     69)))
-         (ly:message
-          "~a" foo)))
+     (let ((foo (+ 42
+                   69)))
+       (ly:message
+        "~a" foo)))
 =-=-=
 
 Name: hanging-assignment-indent

@@ -36,6 +36,8 @@
     (treesit-fontify-with-override (treesit-node-start name-node)
                                    (treesit-node-end name-node)
                                    (pcase kw
+                                     ((rx "function")
+                                      nil)
                                      ((rx (or "syntax" "macro"))
                                       'font-lock-variable-name-face)
                                      ((rx (or "class" "module"

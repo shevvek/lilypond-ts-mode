@@ -44,14 +44,14 @@
 (require 'lilypond-ts-font-lock)
 
 (defvar lilypond-ts-grammar-url
-  "https://github.com/nwhetsell/tree-sitter-lilypond/")
+  '("https://github.com/shevvek/tree-sitter-lilypond/" "treesitter24"))
 
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
 
 (defun lilypond-ts--install ()
   (add-to-list 'treesit-language-source-alist
-               `(lilypond . (,lilypond-ts-grammar-url)))
+               `(lilypond . ,lilypond-ts-grammar-url))
   (treesit-install-language-grammar 'lilypond))
 
 (unless (treesit-language-available-p 'lilypond)

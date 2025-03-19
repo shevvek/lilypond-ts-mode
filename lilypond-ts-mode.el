@@ -169,6 +169,7 @@
     (lilypond-ts-capf-mode 1)
     (lilypond-ts-navigation-mode 1)))
 
+(derived-mode-set-parent 'lilypond-ts-mode 'lilypond-mode)
 (add-to-list 'auto-mode-alist '("\\.ly\\'" . lilypond-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ily\\'" . lilypond-ts-mode))
 

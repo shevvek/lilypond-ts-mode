@@ -26,13 +26,19 @@
   (when-let* ((kw (treesit-node-get node '((sibling -1 t)
                                            (text t))))
               (name-node (treesit-search-subtree node "scheme_symbol"))
-              (function-def? (or (treesit-node-match-p node "scheme_list")
-                                 (when-let (maybe-lambda (treesit-node-get node
-                                                           '((sibling 1 t)
-                                                             (child 0 t)
-                                                             (text t))))
-                                   (string-match-p "lambda\\|function"
-                                                   maybe-lambda)))))
+              (default-face
+               (if (or (treesit-node-match-p node "scheme_list")
+                       (cl-loop for sib = (treesit-node-next-sibling node t)
+                                then (treesit-node-next-sibling sib t)
+                                while (treesit-node-match-p sib "comment")
+                                finally return
+                                (when-let ((maybe-lambda (treesit-node-get sib
+                                                           '((child 0 t)
+                                                             (text t)))))
+                                  (string-match-p "lambda\\|function"
+                                                  maybe-lambda))))
+                   'font-lock-function-name-face
+                 'font-lock-variable-name-face)))
     (treesit-fontify-with-override (treesit-node-start name-node)
                                    (treesit-node-end name-node)
                                    (pcase kw
@@ -46,9 +52,7 @@
                                      ((rx (or "class" "module"
                                               "library" "record"))
                                       'font-lock-type-face)
-                                     (_ (if function-def?
-                                            'font-lock-function-name-face
-                                          'font-lock-variable-name-face)))
+                                     (_ default-face))
                                    override start end)))
 
 (defgroup lilypond-ts-font-lock nil

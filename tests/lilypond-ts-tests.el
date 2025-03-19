@@ -200,5 +200,8 @@ autodoc matches the literal string CORRECT."
 (ert-font-lock-deftest-file lilypond-ts-test--font-lock
     lilypond-ts-mode "font-lock-test.ly")
 
+(ert-font-lock-deftest-file lilypond-ts-test--scheme-font-lock
+    lilypond-ts-mode "scheme-font-lock.ly")
+
 (provide 'lilypond-ts-tests)
 ;;; lilypond-ts-tests.el ends here

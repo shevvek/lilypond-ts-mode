@@ -22,7 +22,6 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
 
-
 (defun lilypond-ts--fontify-scheme-defun (node override start end &rest _)
   (when-let* ((kw (treesit-node-get node '((sibling -1 t)
                                            (text t))))
@@ -32,11 +31,15 @@
                                                            '((sibling 1 t)
                                                              (child 0 t)
                                                              (text t))))
-                                   (string-match-p "lambda" maybe-lambda)))))
+                                   (string-match-p "lambda\\|function"
+                                                   maybe-lambda)))))
     (treesit-fontify-with-override (treesit-node-start name-node)
                                    (treesit-node-end name-node)
                                    (pcase kw
                                      ((rx "function")
+                                      ;; this is a heuristic for LilyPond syntax
+                                      ;; functions, effectively lambdas with the
+                                      ;; word "define" in their keywords
                                       nil)
                                      ((rx (or "syntax" "macro"))
                                       'font-lock-variable-name-face)
@@ -48,24 +51,43 @@
                                           'font-lock-variable-name-face)))
                                    override start end)))
 
-(defvar lilypond-ts--scheme-defun-regex
-  (rx "define" (or (not alpha) eol)))
+(defgroup lilypond-ts-font-lock nil
+  "Font lock settings for `lilypond-ts-mode'."
+  :group 'lilypond-ts)
 
-(defvar lilypond-ts--scheme-kwd-free-regexes
+(defcustom lilypond-ts--scheme-defun-regex
+  (rx "define" (or (not alpha) eol))
+  "Font lock regex for Scheme defun keywords in `lilypond-ts-mode'."
+  :group 'lilypond-ts-font-lock
+  :type 'string)
+
+(defcustom lilypond-ts--scheme-kwd-free-regexes
   '("let" "syntax" "lambda" "case" "cond" "match" "regex" "force" "assert"
-    "fluid" "wind" "map" "filter" "for-each" "fold" "reduce" "transduce"))
+    "fluid" "wind" "map" "filter" "for-each" "fold" "reduce" "transduce")
+  "Scheme font lock keyword regexes for `lilypond-ts-mode' that match only at
+the beginning of a symbol (not counting the prefix `ly:')."
+  :group 'lilypond-ts-font-lock
+  :type '(repeat string))
 
-(defvar lilypond-ts--scheme-kwd-start-regexes
-  '("call" "with" "import" "include" "test" "eval"))
+(defcustom lilypond-ts--scheme-kwd-start-regexes
+  '("call" "with" "import" "include" "test" "eval")
+  "Scheme font lock keyword regexes for `lilypond-ts-mode' that match anywhere
+within a symbol."
+  :group 'lilypond-ts-font-lock
+  :type '(repeat string))
 
-(defvar lilypond-ts--scheme-kwds
+(defcustom lilypond-ts--scheme-kwds
   '("_i" "G_" "and" "and=>" "any" "apply" "begin" "compose" "const" "cut" "cute"
     "delay" "delete" "delq" "delv" "do" "else" "every" "except" "export"
     "grob-transformer" "guard" "identity" "if" "make" "make-engraver"
     "make-performer" "make-relative" "make-translator" "markup" "memq" "memv"
     "member" "not" "negate" "only" "or" "parameterize" "promise" "receive"
     "remove" "rename" "require-extension" "reverse" "unless" "use-modules"
-    "values" "when" "while"))
+    "values" "when" "while")
+  "Scheme font lock keywords regexes for `lilypond-ts-mode' that must match
+exactly (not counting the suffix `!')."
+  :group 'lilypond-ts-font-lock
+  :type '(repeat string))
 
 (defun lilypond-ts--scheme-keywords-rx ()
   (eval `(rx (or (or (regex ,lilypond-ts--scheme-defun-regex)
@@ -136,6 +158,24 @@
 
      :feature scheme-numbers
      ((scheme_number) @font-lock-number-face)))
+
+(defcustom lilypond-ts--other-keywords
+  '("absolute" "acciaccatura" "after" "afterGrace" "alterBroken"
+    "appendToTag" "applyContext" "applyMusic" "applyOutput" "appoggiatura"
+    "autoChange" "cadenzaOff" "cadenzaOn" "compoundMeter"
+    "contextPropertyCheck" "cueDuring" "cueDuringWithClef" "fixed" "grace"
+    "hide" "keepWithTag" "language" "languageRestore"
+    "languageSaveAndChange" "markupMap" "omit" "once" "ottava"
+    "overrideProperty" "parallelMusic" "partCombine" "partial"
+    "popContextProperty" "propertyOverride" "propertyRevert" "propertySet"
+    "propertyTweak" "propertyUnset" "pushContextProperty" "pushToTag"
+    "quoteDuring" "relative" "removeWithTag" "scaleDurations" "settingsFrom"
+    "single" "slashedGrace" "stopStaff" "tag" "tagGroup" "temporary" "time"
+    "times" "transpose" "transposedCueDuring" "transposition" "tuplet"
+    "tweak" "undo" "unfoldRepeats" "unfolded" "void" "volta")
+  "Extra words to font lock as \\-escaped keywords in LilyPond code."
+  :group 'lilypond-ts-font-lock
+  :type '(repeat string))
 
 (defun lilypond-ts--font-lock-rules ()
   `( :default-language lilypond

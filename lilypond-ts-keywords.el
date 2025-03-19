@@ -37,9 +37,6 @@
     (plist-put plist :value (delq nil (mapcar wrap-element new-data))))
   (plist-get plist :value))
 
-(defvar lilypond-ts-post-eval-hook
-  nil)
-
 (defvar lilypond-ts--lists-to-refresh
   nil)
 
@@ -63,24 +60,6 @@
     "layout" "lyricmode" "lyrics" "lyricsto" "midi" "name" "new" "notemode"
     "paper" "remove" "repeat" "rest" "revert" "score" "sequential" "set"
     "simultaneous" "tempo" "type" "unset" "with"))
-
-(defvar lilypond-ts--other-keywords
-  nil)
-
-(setq lilypond-ts--other-keywords
-      '("absolute" "acciaccatura" "after" "afterGrace" "alterBroken"
-        "appendToTag" "applyContext" "applyMusic" "applyOutput" "appoggiatura"
-        "autoChange" "cadenzaOff" "cadenzaOn" "compoundMeter"
-        "contextPropertyCheck" "cueDuring" "cueDuringWithClef" "fixed" "grace"
-        "hide" "keepWithTag" "language" "languageRestore"
-        "languageSaveAndChange" "markupMap" "omit" "once" "ottava"
-        "overrideProperty" "parallelMusic" "partCombine" "partial"
-        "popContextProperty" "propertyOverride" "propertyRevert" "propertySet"
-        "propertyTweak" "propertyUnset" "pushContextProperty" "pushToTag"
-        "quoteDuring" "relative" "removeWithTag" "scaleDurations" "settingsFrom"
-        "single" "slashedGrace" "stopStaff" "tag" "tagGroup" "temporary" "time"
-        "times" "transpose" "transposedCueDuring" "transposition" "tuplet"
-        "tweak" "undo" "unfoldRepeats" "unfolded" "void" "volta"))
 
 (defvar lilypond-ts--contexts
   '( :value nil

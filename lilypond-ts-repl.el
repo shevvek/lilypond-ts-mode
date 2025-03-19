@@ -100,6 +100,14 @@
 
 ;;; Interactive evaluation
 
+(defcustom lilypond-ts-post-eval-hook nil
+  "Hook to run after evaluating code in the LilyPond REPL.
+
+Note that interactive use of the REPL does not trigger this hook, only functions
+like `lilypond-ts-eval-buffer' and `lilypond-ts-eval-region'."
+  :group 'lilypond-ts-run
+  :type 'hook)
+
 (defun lilypond-ts-eval-region (start end)
   "Async eval the region within the current Geiser LilyPond REPL."
   (interactive "r")

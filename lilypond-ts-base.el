@@ -30,7 +30,9 @@
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))
 
-(defvar lilypond-ts--debug-msgs nil)
+(defgroup lilypond-ts nil
+  "Customization options for `lilypond-ts-mode'"
+  :group 'languages)
 
 ;;; Embedded Scheme
 

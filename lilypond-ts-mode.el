@@ -51,8 +51,14 @@
 
 ;;; Indentation
 
-(defvar lilypond-ts-indent-offset 2)
-(defvar lilypond-ts-indent-broken-offset lilypond-ts-indent-offset)
+(defcustom lilypond-ts-indent-offset 2
+  "Base indent for `lilypond-ts-mode'."
+  :group 'lilypond-ts
+  :type 'natnum)
+(defcustom lilypond-ts-indent-broken-offset lilypond-ts-indent-offset
+  "Indent for line breaks before or after the `=' in a LilyPond expression."
+  :group 'lilypond-ts
+  :type 'natnum)
 (defvar lilypond-ts-indent-rules
   `((lilypond
      ;; Don't indent wrapped strings
@@ -127,6 +133,7 @@
 ;;; Mode-init
 
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
+  :group 'lilypond-ts
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))
     ;; Recursive directory search takes some time, so only trigger automatically

@@ -67,7 +67,11 @@
 
 (require 'lilypond-ts-base)
 
-(defvar lilypond-ts-search-path
+(defgroup lilypond-ts-run nil
+  "Settings for finding, selecting, and running the LilyPond binary."
+  :group 'lilypond-ts)
+
+(defcustom lilypond-ts-search-path
   (cond
    ((eq system-type 'windows-nt)
     '("c:/Program Files/"
@@ -75,7 +79,10 @@
    ((eq system-type 'darwin)
     '("/Applications/"
       "~/Applications/"))
-   (t exec-path)))
+   (t exec-path))
+  "Search path for LilyPond installs."
+  :type '(repeat directory)
+  :group 'lilypond-ts-run)
 
 (defconst lilypond-ts--bin-regex
   (if (eq system-type 'windows-nt)
@@ -186,14 +193,19 @@ compatibility with Frescobaldi document variables."
       (find-file-noselect master)
     (current-buffer)))
 
-(defvar lilypond-ts-default-lily-args nil
-  "List of arguments to pass to LilyPond when compiling.")
+(defcustom lilypond-ts-default-lily-args nil
+  "List of arguments to pass to LilyPond when compiling."
+  :group 'lilypond-ts-run
+  :type '(choice string (cons string string)
+                 (repeat (choice string (cons string string)))))
 
-(defvar lilypond-ts-default-includes nil
+(defcustom lilypond-ts-default-includes nil
   "List of LilyPond include arguments. Directories will be passed using `-I'.
-Files will be passed using `-dinclude-settings='.")
+Files will be passed using `-dinclude-settings='."
+  :group 'lilypond-ts-run
+  :type '(choice file directory (repeat (choice file directory))))
 
-(defvar lilypond-ts--lily-argument-sets
+(defcustom lilypond-ts--lily-argument-sets
   `((score :inherit (navigation defaults))
     (parts :inherit defaults)
     (navigation :includes ,(file-name-concat lilypond-ts-location
@@ -202,7 +214,58 @@ Files will be passed using `-dinclude-settings='.")
           :env "GUILE_AUTO_COMPILE=1"
           :inherit defaults)
     (defaults :args lilypond-ts-default-lily-args
-              :includes lilypond-ts-default-includes)))
+              :includes lilypond-ts-default-includes))
+  "Alist of named partial argument sets for invoking the LilyPond binary.
+
+Keys for this alist may be used as the argument to `lilypond-ts--compile-cmd'.
+
+`lilypond-ts-mode' relies on the default keys `score', `parts', `navigation',
+`repl', and `defaults'. Removing any of these will cause issues.
+
+:includes are passed either using `-I' or `-dinclude-settings=' depending on if
+the value is a file or directory, with automatic escaping of paths.
+
+:args are passed as-is and should be appropriately escaped or quoted. Arguments
+may be grouped in cons cells, e.g. (\"-o\" \"output-dir\").
+
+:env are environment variable settings applied temporarily when invoking
+LilyPond, and should be in string form.
+
+:version is the version string used to select the closest compatible LilyPond
+installation. If both child and parent argument set define :version, the child
+takes precedence.
+
+:inherit specifies one or more parent partial argument sets by name.
+
+:args, :includes, and :env evaluate their values, so variable names or Lisp
+expressions may be used.
+
+Single values for :args, :includes, :env, and :inherit need not be wrapped in a
+list.
+
+All keys are optional."
+  :group 'lilypond-ts-run
+  :type '(alist :key-type symbol
+                :options (score parts navigation repl defaults)
+                :value-type
+                (plist :options
+                       ((:args (choice string (cons string string) variable
+                                       (repeat (choice string variable sexp
+                                                       (cons string string)))
+                                       sexp))
+                        (:includes (choice file directory variable
+                                           (repeat (choice file directory
+                                                           variable sexp))
+                                           sexp))
+                        (:env (choice string variable
+                                      (repeat (choice string variable sexp))
+                                      sexp))
+                        (:version string
+                                  :match (lambda (w v)
+                                           (version-to-list v))
+                                  :type-error "Invalid version string.")
+                        (:inherit (choice symbol
+                                          (repeat symbol)))))))
 
 (defun lilypond-ts--flatten-cmd (cmd)
   "Lookup CMD in `lilypond-ts--lily-argument-sets'. Evaluate Lisp code in the

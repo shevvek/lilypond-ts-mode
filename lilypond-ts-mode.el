@@ -132,6 +132,7 @@
 
 ;;; Mode-init
 
+;;;###autoload
 (define-derived-mode lilypond-ts-mode prog-mode "Lilypond"
   :group 'lilypond-ts
   (when (treesit-ready-p 'lilypond)

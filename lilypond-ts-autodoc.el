@@ -17,12 +17,7 @@
 
 ;;; Commentary:
 
-;; Geiser autodoc mode wraps Emacs eldoc mode in order to repurpose it for use
-;; with Scheme. We need to redefine autodoc-at-point to handle LilyPond syntax,
-;; but we still want to use both the underlying Geiser library for querying the
-;; REPL and caching function signatures, as well as the existing autodoc within
-;; Scheme blocks. We also still want to use the top layer that defines a minor
-;; mode wrapping Eldoc. The use of advice therefore seems unavoidable.
+;; Eldoc for LilyPond
 
 ;;; Code:
 

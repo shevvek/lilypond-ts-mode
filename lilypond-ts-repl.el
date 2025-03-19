@@ -148,6 +148,9 @@ like `lilypond-ts-eval-buffer' and `lilypond-ts-eval-region'."
              (message "%s" s)))
         (lilypond-ts-eval-region (point-min) (point-max))))))
 
+;; Geiser requires that implementations provide a feature named
+;; geiser-<implementation-name>, but it seems inappropriate to use a separate
+;; prefix for a feature with bidirectional dependencies to lilypond-ts-mode.
 (provide 'geiser-lilypond-guile)
 (provide 'lilypond-ts-repl)
 ;;; lilypond-ts-repl.el end here

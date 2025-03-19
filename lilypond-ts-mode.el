@@ -1,6 +1,12 @@
-;;; lilypond-ts-mode.el --- Treesit mode for Lilypond -*- lexical-binding: t -*-
+;;; lilypond-ts-mode.el --- Treesit mode for GNU LilyPond -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2025 Saul James Tobin
+
+;; Author: Saul James Tobin
+;; Version: 0.1-alpha
+;; Package-Requires: ((geiser "0.31.1") (geiser-guile "0.28.2") (emacs "30.1"))
+;; Keywords: languages, tools, scheme, lilypond, geiser, lisp
+;; URL: https://github.com/shevvek/lilypond-ts-mode
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -14,6 +20,20 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with lilypond-ts-mode.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; A modern `treesit' major mode for editing GNU LilyPond files, with tight
+;; LilyPond REPL integration via `geiser', and "vertical" rhythm-aware
+;; navigation. Features include:
+
+;; * Full support for nested Scheme and LilyPond embeddings.
+;; * Contextual completion-at-point and autodoc.
+;; * Detect and select version-compatible LilyPond installations for compilation
+;; and interactive evaluation.
+;; * Rhythmic navigation minor mode: easily edit the same beat across all parts.
+
+;;; Code:
 
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-run)

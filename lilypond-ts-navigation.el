@@ -135,18 +135,27 @@ current directory for its creation and try again once it exists."
 file (including that file) with `lilypond-ts-navigation-mode' active, remove any
 lilypond-ts--watchers active in that directory. With optional argument FNAME,
 use that instead of the current buffer filename."
-  (when-let* ((fname (or fname (buffer-file-name)))
-              (file-dir (file-name-directory fname))
-              ((cl-loop for b being the buffers
-                        when (buffer-local-value lilypond-ts-navigation-mode b)
-                        when (buffer-file-name b)
-                        never (file-equal-p file-dir (file-name-directory
-                                                      (buffer-file-name b)))))
-              (nav-dir (file-name-concat file-dir ".nav")))
-    (file-notify-rm-watch (alist-get file-dir lilypond-ts--watchers))
-    (setf (alist-get file-dir lilypond-ts--watchers nil t) nil)
-    (file-notify-rm-watch (alist-get nav-dir lilypond-ts--watchers))
-    (setf (alist-get nav-dir lilypond-ts--watchers nil t) nil)))
+  (with-demoted-errors "Error removing lilypond-ts-navigation watcher: %S"
+    (when-let* ((fname (or fname (buffer-file-name)))
+                (file-dir (file-name-directory fname))
+                ((cl-loop for b being the buffers
+                          when (buffer-local-value lilypond-ts-navigation-mode b)
+                          when (buffer-file-name b)
+                          never (file-equal-p file-dir (file-name-directory
+                                                        (buffer-file-name b)))))
+                (nav-dir (file-name-concat file-dir ".nav")))
+      (while (or (alist-get file-dir lilypond-ts--watchers
+                            nil nil #'file-equal-p)
+                 (alist-get nav-dir lilypond-ts--watchers
+                            nil nil #'file-equal-p))
+        (file-notify-rm-watch (alist-get file-dir lilypond-ts--watchers
+                                         nil nil #'file-equal-p))
+        (setf (alist-get file-dir lilypond-ts--watchers nil t #'file-equal-p)
+              nil)
+        (file-notify-rm-watch (alist-get nav-dir lilypond-ts--watchers
+                                         nil nil #'file-equal-p))
+        (setf (alist-get nav-dir lilypond-ts--watchers nil t #'file-equal-p)
+              nil)))))
 
 ;; Go to beginning/end of overlay depending on = or < moment
 (defun lilypond-ts-forward-same-moment (&optional n)

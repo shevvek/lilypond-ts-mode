@@ -44,7 +44,7 @@
 (require 'lilypond-ts-font-lock)
 
 (defvar lilypond-ts-grammar-url
-  '("https://github.com/shevvek/tree-sitter-lilypond/" "treesitter24"))
+  '("https://github.com/nwhetsell/tree-sitter-lilypond/" "tree-sitter-abi-14-main"))
 
 (defvar lilypond-ts-location
   (file-name-directory (or load-file-name buffer-file-name)))

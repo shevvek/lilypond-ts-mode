@@ -30,6 +30,7 @@
                (if (or (treesit-node-match-p node "scheme_list")
                        (cl-loop for sib = (treesit-node-next-sibling node t)
                                 then (treesit-node-next-sibling sib t)
+                                always sib
                                 while (treesit-node-match-p sib "comment")
                                 finally return
                                 (when-let ((maybe-lambda (treesit-node-get sib

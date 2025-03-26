@@ -181,7 +181,7 @@ expressions in relation to the same moment, instead of drifting away from the
 starting moment whenever an expression lacks music at the exact same moment."
   (interactive "P")
   (when-let ((score-id (get-char-property (point) :score-id)))
-    (setf (alist-get score-id lilypond-ts--goal-moments)
+    (setf (alist-get score-id lilypond-ts--goal-moments nil t)
           (unless unset (get-char-property (point) :moment)))))
 
 (defun lilypond-ts-forward-moment (&optional n)

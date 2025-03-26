@@ -23,38 +23,46 @@
 (require 'lilypond-ts-keywords)
 
 (defun lilypond-ts--fontify-scheme-defun (node override start end &rest _)
-  (when-let* ((kw (treesit-node-get node '((sibling -1 t)
-                                           (text t))))
-              (name-node (treesit-search-subtree node "scheme_symbol"))
-              (default-face
-               (if (or (treesit-node-match-p node "scheme_list")
-                       (cl-loop for sib = (treesit-node-next-sibling node t)
-                                then (treesit-node-next-sibling sib t)
-                                always sib
-                                while (treesit-node-match-p sib "comment")
-                                finally return
-                                (when-let ((maybe-lambda (treesit-node-get sib
-                                                           '((child 0 t)
-                                                             (text t)))))
-                                  (string-match-p "lambda\\|function"
-                                                  maybe-lambda))))
-                   'font-lock-function-name-face
-                 'font-lock-variable-name-face)))
-    (treesit-fontify-with-override (treesit-node-start name-node)
-                                   (treesit-node-end name-node)
-                                   (pcase kw
-                                     ((rx "function")
-                                      ;; this is a heuristic for LilyPond syntax
-                                      ;; functions, effectively lambdas with the
-                                      ;; word "define" in their keywords
-                                      nil)
-                                     ((rx (or "syntax" "macro"))
-                                      'font-lock-variable-name-face)
-                                     ((rx (or "class" "module"
-                                              "library" "record"))
-                                      'font-lock-type-face)
-                                     (_ default-face))
-                                   override start end)))
+  (condition-case err
+      (when-let*
+          ((kw (treesit-node-get node '((sibling -1 t)
+                                        (text t))))
+           (name-node (treesit-search-subtree node "scheme_symbol"))
+           (default-face
+            (if (or (treesit-node-match-p node "scheme_list")
+                    (cl-loop for sib = (treesit-node-next-sibling node t)
+                             then (treesit-node-next-sibling sib t)
+                             always sib
+                             while (treesit-node-match-p sib "comment")
+                             finally return
+                             (when-let ((maybe-lambda (treesit-node-get sib
+                                                        '((child 0 t)
+                                                          (text t)))))
+                               (string-match-p "lambda\\|function"
+                                               maybe-lambda))))
+                'font-lock-function-name-face
+              'font-lock-variable-name-face)))
+        (treesit-fontify-with-override (treesit-node-start name-node)
+                                       (treesit-node-end name-node)
+                                       (pcase kw
+                                         ((rx "function")
+                                          ;; this is a heuristic for LilyPond
+                                          ;; syntax functions, effectively
+                                          ;; lambdas with the word "define"
+                                          nil)
+                                         ((rx (or "syntax" "macro"))
+                                          'font-lock-variable-name-face)
+                                         ((rx (or "class" "module"
+                                                  "library" "record"))
+                                          'font-lock-type-face)
+                                         (_ default-face))
+                                       override start end))
+    (error (message "Error fontifying Scheme defun \"%s\" at %s:%d: %S"
+                    (treesit-node-text node)
+                    (buffer-name)
+                    (treesit-node-start node)
+                    err)
+           nil)))
 
 (defgroup lilypond-ts-font-lock nil
   "Font lock settings for `lilypond-ts-mode'."

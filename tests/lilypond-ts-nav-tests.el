@@ -143,10 +143,11 @@
           (with-current-buffer (find-file-noselect file1)
             (lilypond-ts-mode)
             (should (file-directory-p temp-dir))
+            (should-not (file-exists-p nav-dir))
             (should (assoc temp-dir lilypond-ts--watchers #'file-equal-p))
             (lilypond-ts-compile-score)
             (while (not compilation-done)
-              (sit-for 0.01))
+              (read-event nil nil 0.01))
             (should (file-exists-p
                      (ert-resource-file "nav-tests-temp/moment-navigation.pdf")))
             (should (file-exists-p nav-dir))
@@ -204,7 +205,8 @@
       (setf (alist-get score-id lilypond-ts--moment-navigation-table nil t) nil)
       (lilypond-ts--maybe-remove-nav-watcher temp-dir)
       (delete-directory temp-dir t)
-      (should-not (assoc temp-dir lilypond-ts--watchers #'string-match-p)))))
+      (should-not (cl-assoc temp-dir lilypond-ts--watchers
+                            :test #'string-match-p)))))
 
 (provide 'lilypond-ts-nav-tests)
 ;;; lilypond-ts-nav-tests.el ends here

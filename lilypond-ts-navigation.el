@@ -17,6 +17,7 @@
 
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-run)
+(require 'filenotify)
 
 (defvar lilypond-ts--nav-update-tick 0)
 
@@ -78,11 +79,24 @@ order for expressions in separate files.")
     (lilypond-ts--refresh-moment-nav data-alist)))
 
 (defun lilypond-ts--nav-watcher-callback (ev)
-  (let ((ev-file (car (last ev))))
-    (when (string-equal "l" (file-name-extension ev-file))
-      (message "Reloading navigation data from changed file: %s" ev-file)
-      (with-demoted-errors "Error reading navigation data: %S"
-        (lilypond-ts--read-nav-data ev-file)))))
+  (when-let* (((not (eq 'stopped (cadr ev))))
+              (ev-file (car (last ev)))
+              ((string-equal "l" (file-name-extension ev-file))))
+    (message "Reloading navigation data from changed file: %s" ev-file)
+    (with-demoted-errors "Error reading navigation data: %S"
+      (lilypond-ts--read-nav-data ev-file))))
+
+(defun lilypond-ts--retry-init-watcher-callback (ev)
+  (when-let* (((not (eq 'stopped (cadr ev))))
+              (ev-file (car (last ev)))
+              ((string-match-p ".nav" ev-file)))
+    (file-notify-rm-watch (car ev))
+    (setf (alist-get ev-file lilypond-ts--watchers nil t)
+          nil)
+    ;; Unconditionally removing the retry watcher could lead to failure to
+    ;; initialize if .nav init fails in some way, but since init-nav-watcher
+    ;; can take significant time, this mitigates the risk of a race condition.
+    (lilypond-ts--init-nav-watcher ev-file)))
 
 (defun lilypond-ts--init-nav-watcher (&optional fname)
   "Check whether there is already an entry in lilypond-ts--watchers for a .nav
@@ -91,30 +105,30 @@ optional arg FNAME. If there is not, read nav data from any .l files in that
 .nav folder and initialize a new watcher for that .nav folder, adding it to
 lilypond-ts--watchers. If the .nav subdirectory does not exist, watch the
 current directory for its creation and try again once it exists."
-  (when-let* ((fname (or fname (buffer-file-name)))
-              (file-dir (file-name-directory fname))
-              (nav-dir (file-name-concat file-dir ".nav"))
-              ((not (assoc nav-dir lilypond-ts--watchers))))
-    (if (file-exists-p nav-dir)
-        (progn
-          (mapc #'lilypond-ts--read-nav-data
-                (directory-files nav-dir t "^.*\\.l$"))
-          (push (cons nav-dir
-                      (file-notify-add-watch nav-dir '(change)
-                                             #'lilypond-ts--nav-watcher-callback))
-                lilypond-ts--watchers))
-      (push (cons file-dir
-                  (file-notify-add-watch
-                   file-dir '(change)
-                   (lambda (ev)
-                     (let ((ev-file (car (last ev))))
-                       (when (string-match-p ".nav"
-                                             ev-file)
-                         (lilypond-ts--init-nav-watcher file-dir)
-                         (setf (alist-get file-dir
-                                          lilypond-ts--watchers nil t)
-                               nil))))))
-            lilypond-ts--watchers))))
+  (with-demoted-errors "Error initializing lilypond-ts-navigation watcher: %S"
+    (when-let* ((fname (or fname (buffer-file-name)))
+                (file-dir (file-name-directory fname))
+                ((file-exists-p file-dir))
+                (nav-dir (file-name-concat file-dir ".nav"))
+                ((not (assoc nav-dir lilypond-ts--watchers))))
+      (if (file-exists-p nav-dir)
+          (prog1
+              (push (cons nav-dir
+                          (file-notify-add-watch
+                           nav-dir '(change)
+                           #'lilypond-ts--nav-watcher-callback))
+                    lilypond-ts--watchers)
+            ;; Reading nav data might result in a call to init-nav-watcher for
+            ;; a different file in the same project, hence duplicate watchers
+            ;; So do this second. To do: make nav data read-in lazy.
+            (mapc #'lilypond-ts--read-nav-data
+                  (directory-files nav-dir t "^.*\\.l$")))
+        (unless (assoc file-dir lilypond-ts--watchers)
+          (push (cons file-dir
+                      (file-notify-add-watch
+                       file-dir '(change)
+                       #'lilypond-ts--retry-init-watcher-callback))
+                lilypond-ts--watchers))))))
 
 (defun lilypond-ts--maybe-remove-nav-watcher (&optional fname)
   "If there are no buffers visiting files in the same directory as the current

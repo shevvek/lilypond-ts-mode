@@ -26,18 +26,23 @@
 
 (defun lilypond-ts-test--run-batch-tests ()
   (interactive)
-  (start-process "emacs - lilypond-ts-mode batch tests" "*LilyPond TS Tests*"
-                 (expand-file-name invocation-name invocation-directory)
-                 "-Q" "--batch"
-                 "-L" (cl-find "geiser[^a-zA-Z]+$" load-path
-                               :test #'string-match-p)
-                 "-L" (cl-find "geiser-guile[^a-zA-Z]+$" load-path
-                               :test #'string-match-p)
-                 "-L" (expand-file-name lilypond-ts-location)
-                 "-L" (expand-file-name "tests/" lilypond-ts-location)
-                 "-l" "lilypond-ts-tests"
-                 "-l" "lilypond-ts-nav-tests"
-                 "-f" "ert-run-tests-batch-and-exit"))
+  (let ((test-process
+         (start-process "emacs - lilypond-ts-mode batch tests"
+                        "*LilyPond TS Tests*"
+                        (expand-file-name invocation-name invocation-directory)
+                        "-Q" "--batch"
+                        "-L" (cl-find "geiser[^a-zA-Z]+$" load-path
+                                      :test #'string-match-p)
+                        "-L" (cl-find "geiser-guile[^a-zA-Z]+$" load-path
+                                      :test #'string-match-p)
+                        "-L" (expand-file-name lilypond-ts-location)
+                        "-L" (expand-file-name "tests/" lilypond-ts-location)
+                        "-l" "lilypond-ts-tests"
+                        "-l" "lilypond-ts-nav-tests"
+                        "-f" "ert-run-tests-batch-and-exit")))
+    (sit-for 30)
+    (when (process-live-p test-process)
+      (kill-process test-process))))
 
 (provide 'lilypond-ts-test-batch)
 ;;; lilypond-ts-test-batch.el ends here

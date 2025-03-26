@@ -66,6 +66,7 @@
 ;;; Code:
 
 (require 'lilypond-ts-base)
+(require 'compile)
 
 (defgroup lilypond-ts-run nil
   "Settings for finding, selecting, and running the LilyPond binary."
@@ -158,6 +159,11 @@ prefix argument RESET, clear and refresh the list."
 (defun lilypond-ts--closest-compatible-lily (ver)
   "Return the entry in `lilypond-ts--lily-installs-alist' with the minimum
 version >= to VER. If VER is nil, return the highest installed version."
+  (unless (multisession-value lilypond-ts--lily-installs-alist)
+    (lilypond-ts-find-installs)
+    (with-timeout (2 (warn "No LilyPond installations found."))
+      (while (not (multisession-value lilypond-ts--lily-installs-alist))
+        (sit-for 0.01))))
   (if ver
       (cl-assoc ver (multisession-value lilypond-ts--lily-installs-alist)
                 :test #'version<=)

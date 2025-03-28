@@ -102,5 +102,18 @@ BEFORE and AFTER THING nodes on either side of NODE."
                   (symbol-name (car (elt captures index)))))
          (start-index (- index offset)))
       (seq-subseq captures start-index (+ start-index capture-count)))))
+
+(defun lilypond-ts--treesit-query-parents (node query &optional
+                                                start-depth end-depth)
+  (cl-loop repeat (if end-depth
+                      (1+ (- end-depth start-depth))
+                    max-lisp-eval-depth)
+           for n = (if start-depth
+                       (treesit-node-get node '((parent start-depth)))
+                     node)
+           then (treesit-node-parent n)
+           always n
+           thereis (treesit-query-capture n query)))
+
 (provide 'lilypond-ts-utils)
 ;;; lilypond-ts-utils.el ends here

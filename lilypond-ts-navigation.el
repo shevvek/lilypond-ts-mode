@@ -37,6 +37,8 @@ within that expression, in reverse order, to the corresponding input location.
 The alists are in the same order as expressions appear in the code, or in score
 order for expressions in separate files.")
 
+(defvar lilypond-ts--score-id-alist nil)
+
 (defvar lilypond-ts--goal-moments nil
   "Alist storing the goal moment for each score-id.")
 
@@ -44,35 +46,51 @@ order for expressions in separate files.")
   (save-excursion
     (cl-loop with tick = (setq lilypond-ts--nav-update-tick
                                (1+ lilypond-ts--nav-update-tick))
-             for (((ln1 ch1) score-id index moment) ((ln2 ch2))) on nav-table
-             for last-pt = (lilypond-ts--go-to-loc nil ln1 ch1) then (point)
+             with segment-boundary = nil
+             with index = 0
+             for ((loc1 score-id1 beg-mom1 end-mom1 bar-pos bar-num)
+                  (loc2 score-id2 beg-mom2))
+             on nav-table
+             for last-pt = (setq segment-boundary
+                                 (apply #'lilypond-ts--go-to-loc nil loc1))
+             then (point)
              for parent-end = (treesit-node-end
                                (treesit-parent-until
                                 (treesit-node-at (point)) "expression_block"))
-             when ln2 do (lilypond-ts--go-to-loc nil ln2 ch2)
+             when loc2 do (apply #'lilypond-ts--go-to-loc nil loc2)
+             unless (and loc2
+                         (eq score-id1 score-id2)
+                         (= end-mom1 beg-mom2))
+             do (lilypond-ts--update-overlay tick segment-boundary
+                                             (if loc2
+                                                 (setq segment-boundary (point))
+                                               parent-end)
+                                             :score-id score-id1
+                                             :nav-index (cl-incf index))
              do (lilypond-ts--update-overlay tick last-pt
                                              (if (< last-pt (point) parent-end)
                                                  (point)
                                                parent-end)
-                                             :moment moment
-                                             :index index
-                                             :score-id score-id)
-             unless (memq score-id score-ids) collect score-id into score-ids
+                                             :score-id score-id1
+                                             :moment beg-mom1
+                                             :end-moment end-mom1
+                                             :bar-position bar-pos
+                                             :bar-number bar-num)
+             unless (memq score-id1 score-ids) collect score-id1 into score-ids
              finally (dolist (id score-ids)
                        (lilypond-ts--cleanup-overlays tick nil nil
-                                                      :moment :index
                                                       :score-id id)))))
 
 (defun lilypond-ts--refresh-moment-nav (table-alist)
   (cl-loop for (file . table) in (alist-get 'by-input-file table-alist)
            do (with-current-buffer (find-file-noselect file)
                 (lilypond-ts--put-moment-overlays table)))
-  (cl-loop for (score-id . table) in (alist-get 'by-score table-alist)
-           do (setf (alist-get score-id
-                               lilypond-ts--moment-navigation-table)
-                    table)))
+  (cl-loop for (score-id . files) in (alist-get 'by-score table-alist)
+           do (setf (alist-get score-id lilypond-ts--score-id-alist)
+                    files)))
 
 (defun lilypond-ts--read-nav-data (fname)
+  ;;(with-demoted-errors "Error reading nav data: %S"
   (let ((data-alist (with-temp-buffer
                       (insert-file-contents fname)
                       (read (current-buffer)))))
@@ -185,6 +203,120 @@ music expression is reached, wrap around to the first."
              (dest-nav-alist (nth dest-index bounded-table))
              (dest (cl-assoc this-moment dest-nav-alist :key #'car :test #'>=)))
     (apply #'lilypond-ts--go-to-loc (cadr dest))))
+
+(defun lilypond-ts--next-segment (score-id &optional initial-pos backward)
+  (cl-loop with search-fun = (if backward
+                                 #'previous-single-char-property-change
+                               #'next-single-char-property-change)
+           for pos = (or initial-pos (point)) then (if ov
+                                                       (if backward
+                                                           (overlay-start ov)
+                                                         (overlay-end ov))
+                                                     (funcall search-fun
+                                                              pos :nav-index))
+           for (index . ov) = (get-char-property-and-overlay pos :nav-index)
+           until (or (>= (point-min) pos)
+                     (<= (point-max) pos))
+           when (and index ov (if backward
+                                  (< (overlay-end ov) (point))
+                                (< (point) (overlay-start ov)))
+                     (eq score-id (overlay-get ov :score-id)))
+           return ov))
+
+(defun lilypond-ts--forward-same-moment (&optional backward)
+  (cl-loop with score-id = (get-char-property (point) :score-id)
+           with score-files = (cdr (assq score-id lilypond-ts--score-id-alist))
+           with m = (or (cdr (assq score-id lilypond-ts--goal-moments))
+                        (get-char-property (point) :moment))
+           with j0 = (seq-position score-files (buffer-file-name))
+           with jn = (length score-files)
+           for j from 0 to (1- jn)
+           for segment = (lilypond-ts--next-segment score-id nil backward)
+           then (with-current-buffer
+                    (find-file-noselect
+                     (nth (mod (+ j0 (* j (if backward -1 1))) jn)
+                          score-files))
+                  (lilypond-ts--next-segment score-id (point-min) backward))
+           for beg = (when segment (overlay-start segment))
+           for end = (when segment (overlay-end segment))
+           for buf = (when segment (overlay-buffer segment))
+           until (and segment
+                      (eq buf (current-buffer))
+                      (<= beg (point))
+                      (< (point) end))
+           when (and segment
+                     (<= (get-char-property beg :moment buf) m)
+                     (< m (get-char-property end :end-moment buf)))
+           thereis (cl-find m (overlays-in beg end)
+                            :key (lambda (ov)
+                                   (or (overlay-get ov :moment)
+                                       (1+ m)))
+                            :test #'>= :from-end t)))
+
+(defun lilypond-ts--next-closest-overlay (prop init-pos &optional backward)
+  (cl-loop with search-fun = (if backward
+                                 #'previous-single-char-property-change
+                               #'next-single-char-property-change)
+           for pos = init-pos then (funcall search-fun pos prop)
+           thereis (cdr (get-char-property-and-overlay pos prop))
+           until (if backward
+                     (<= pos (point-min))
+                   (<= (point-max) pos))))
+
+(defun lilypond-ts--forward-same-moment (&optional backward)
+  (save-current-buffer
+    (cl-loop
+     with score-id = (get-char-property (point) :score-id)
+     with m = (or (cdr (assq score-id lilypond-ts--goal-moments))
+                  (get-char-property (point) :moment)
+                  (get-char-property
+                   (previous-single-char-property-change (point) :moment)
+                   :moment))
+     with score-files = (cdr (assq score-id lilypond-ts--score-id-alist))
+     with file-index0 = (seq-position score-files (buffer-file-name))
+     with file-count = (length score-files)
+     for j from 0 to (1- file-count)
+     for file-index = nil then (mod (+ file-index0
+                                       (* j (if backward -1 1)))
+                                    file-count)
+     when file-index do (set-buffer (find-file-noselect
+                                     (nth file-index score-files)))
+     for start-pos = (if backward
+                         (1- (previous-single-char-property-change (point)
+                                                                   :moment))
+                       (next-single-char-property-change (point) :moment))
+     then (if backward (point-max) (point-min))
+     thereis (cl-loop
+              for pos = start-pos then (if backward (1- beg) end)
+              until (if backward
+                        (<= pos (point-min))
+                      (<= (point-max) pos))
+              for segment = (lilypond-ts--next-closest-overlay :nav-index pos
+                                                               backward)
+              always segment
+              for beg = (if backward (overlay-start segment) start-pos)
+              then (overlay-start segment)
+              for end = (if backward start-pos (overlay-end segment))
+              then (overlay-end segment)
+              when (eq score-id (overlay-get segment :score-id))
+              thereis (cl-find-if (lambda (ov)
+                                    (when-let
+                                        ((m-beg (overlay-get ov :moment))
+                                         (m-end (overlay-get ov :end-moment)))
+                                      (and (<= m-beg m)
+                                           (< m m-end))))
+                                  (overlays-in beg end))))))
+
+(defun lilypond-ts-up-moment (&optional backward)
+  (interactive "P")
+  (when-let ((dest-overlay (lilypond-ts--forward-same-moment backward))
+             (buf (overlay-buffer dest-overlay)))
+    (unless (eq buf (current-buffer))
+      (pop-to-buffer buf))
+    ;; (goto-char (if backward
+    ;;                (overlay-start dest-overlay)
+    ;;              (overlay-end dest-overlay)))
+    (goto-char (overlay-start dest-overlay))))
 
 (defsubst lilypond-ts-backward-same-moment (&optional n)
   "Move to the same musical moment in the previous musical expression. With

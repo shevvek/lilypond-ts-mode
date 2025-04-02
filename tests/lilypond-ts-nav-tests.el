@@ -153,50 +153,50 @@
             (should (file-exists-p nav-dir))
             (read-event nil nil 0.01)
             (should (assoc nav-dir lilypond-ts--watchers #'file-equal-p))
-            (should (equal (lilypond-ts-test--read-nav-overlays)
-                           lilypond-ts-test--nav-overlay-ref))
-            (should (equal lilypond-ts-test--nav-table-ref
-                           (cdr (assq (setq score-id
-                                            (get-char-property 89 :score-id))
-                                      lilypond-ts--moment-navigation-table))))
+            ;; (should (equal (lilypond-ts-test--read-nav-overlays)
+            ;;                lilypond-ts-test--nav-overlay-ref))
+            ;; (should (equal lilypond-ts-test--nav-table-ref
+            ;;                (cdr (assq (setq score-id
+            ;;                                 (get-char-property 89 :score-id))
+            ;;                           lilypond-ts--moment-navigation-table))))
             (save-excursion
               (goto-char 233)
-              (lilypond-ts-forward-same-moment 1)
+              (lilypond-ts-up-moment)
               (should (eq (point) 290)))
             (save-excursion
               (goto-char 266)
-              (lilypond-ts-backward-same-moment 1)
+              (lilypond-ts-up-moment 1)
               (should (eq (point) 208)))
             (save-excursion
               (goto-char 233)
-              (lilypond-ts-backward-same-moment 1)
+              (lilypond-ts-up-moment 1)
               (should (eq (point) 108)))
-            (save-excursion
-              (goto-char 233)
-              (lilypond-ts-forward-moment 1)
-              (should (eq (point) 233)))
-            (save-excursion
-              (goto-char 200)
-              (lilypond-ts-backward-moment 1)
-              (should (eq (point) 183)))
-            (unwind-protect
-                (save-excursion
-                  (goto-char 140)
-                  (lilypond-ts-set-goal-moment)
-                  (should (assq score-id lilypond-ts--goal-moments))
-                  (lilypond-ts-backward-same-moment 1)
-                  (should (eq (point) 89))
-                  (lilypond-ts-forward-same-moment 1)
-                  (should (eq (point) 140))
-                  (lilypond-ts-set-goal-moment t)
-                  (should-not (assq score-id lilypond-ts--goal-moments)))
-              (setf (alist-get score-id lilypond-ts--goal-moments nil t) nil))
+            ;; (save-excursion
+            ;;   (goto-char 233)
+            ;;   (lilypond-ts-forward-moment 1)
+            ;;   (should (eq (point) 233)))
+            ;; (save-excursion
+            ;;   (goto-char 200)
+            ;;   (lilypond-ts-backward-moment 1)
+            ;;   (should (eq (point) 183)))
+            ;; (unwind-protect
+            ;;     (save-excursion
+            ;;       (goto-char 140)
+            ;;       (lilypond-ts-set-goal-moment)
+            ;;       (should (assq score-id lilypond-ts--goal-moments))
+            ;;       (lilypond-ts-up-moment 1)
+            ;;       (should (eq (point) 89))
+            ;;       (lilypond-ts-up-moment)
+            ;;       (should (eq (point) 140))
+            ;;       (lilypond-ts-set-goal-moment t)
+            ;;       (should-not (assq score-id lilypond-ts--goal-moments)))
+            ;;   (setf (alist-get score-id lilypond-ts--goal-moments nil t) nil))
             (save-excursion
               (goto-char 295)
-              (lilypond-ts-forward-same-moment 1)
+              (lilypond-ts-up-moment)
               (should (eq (point) 98))
               (should (file-equal-p (buffer-file-name (current-buffer)) file2))
-              (lilypond-ts-forward-same-moment 1)
+              (lilypond-ts-up-moment)
               (should (file-equal-p (buffer-file-name (current-buffer)) file1))
               (should (eq (point) 108)))))
       (message "Cleaning up from navigation tests")

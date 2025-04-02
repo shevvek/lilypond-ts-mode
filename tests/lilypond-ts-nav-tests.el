@@ -52,6 +52,112 @@
                          (overlay-get ov :end-moment)
                          (overlay-get ov :nav-index))))
 
+(defun lilypond-ts-test--apply-char-offsets (pos offsets)
+  (cl-loop for (threshold offset) on offsets by #'cddr
+           when (< threshold pos) sum offset into total-offset
+           finally return (+ pos total-offset)))
+
+(defun lilypond-ts-test--modify-buffer-saving-offsets (&rest modifications)
+  (cl-loop for (pos str) on modifications by #'cddr
+           do (goto-char pos)
+           do (insert str)
+           collect pos
+           collect (length str)))
+
+(defun lilypond-ts-test--up-down-moment (&rest offsets)
+  (ert-info ("up moment" :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 233 offsets))
+      (lilypond-ts-up-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 290 offsets)))))
+  (ert-info ("down moment" :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 266 offsets))
+      (lilypond-ts-down-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 208 offsets)))))
+  (ert-info ("down moment across voice boundary"
+             :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 233 offsets))
+      (lilypond-ts-down-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 108 offsets))))))
+
+(defun lilypond-ts-test--forward-back-moment (&rest offsets)
+  (ert-info ("forward moment" :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 138 offsets))
+      (lilypond-ts-forward-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 140 offsets)))))
+  (ert-info ("backward moment" :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 140 offsets))
+      (lilypond-ts-backward-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 135 offsets)))))
+  (ert-info ("forward moment across voice boundary"
+             :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 291 offsets))
+      (lilypond-ts-forward-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 309 offsets)))))
+  (ert-info ("backward moment across voice boundary"
+             :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 200 offsets))
+      (lilypond-ts-backward-moment 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 185 offsets))))))
+
+(defun lilypond-ts-test--forward-back-measure (&rest offsets)
+  (ert-info ("forward measure" :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 208 offsets))
+      (lilypond-ts-forward-measure 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 218 offsets)))))
+  (ert-info ("forward measure across voice boundary"
+             :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 179 offsets))
+      (lilypond-ts-forward-measure 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 204 offsets)))))
+  (ert-info ("backward measure multiple measures"
+             :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 108 offsets))
+      (lilypond-ts-backward-measure 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 89 offsets)))))
+  (ert-info ("backward measure mid measure"
+             :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 333 offsets))
+      (lilypond-ts-backward-measure 1)
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 329 offsets))))))
+
+(defun lilypond-ts-test--up-moment-across-files (file1 file2 &rest offsets)
+  (ert-info ("up moment across files" :prefix "Nav test: ")
+    (save-excursion
+      (goto-char (lilypond-ts-test--apply-char-offsets 295 offsets))
+      (lilypond-ts-up-moment 1)
+      (should (file-equal-p (buffer-file-name (current-buffer)) file2))
+      (should (eq (point) 98))
+      (lilypond-ts-up-moment 1)
+      (should (file-equal-p (buffer-file-name (current-buffer)) file1))
+      (should (eq (point) (lilypond-ts-test--apply-char-offsets 108 offsets))))))
+
+(defun lilypond-ts-test--goal-moment (score-id &rest offsets)
+  (unwind-protect
+      (save-excursion
+        (goto-char (lilypond-ts-test--apply-char-offsets 140 offsets))
+        (lilypond-ts-set-goal-moment)
+        (should (assq score-id lilypond-ts--goal-moments))
+        (lilypond-ts-down-moment 1)
+        (ert-info ("down moment with goal" :prefix "Nav test: ")
+          (should (eq (point) (lilypond-ts-test--apply-char-offsets 89 offsets))))
+        (lilypond-ts-up-moment 1)
+        (ert-info ("up moment with goal" :prefix "Nav test: ")
+          (should (eq (point) (lilypond-ts-test--apply-char-offsets 140 offsets))))
+        (lilypond-ts-set-goal-moment t)
+        (should-not (assq score-id lilypond-ts--goal-moments)))
+    (setf (alist-get score-id lilypond-ts--goal-moments nil t) nil)))
+
 (ert-deftest lilypond-ts-test--navigation-tests ()
   (let* ((score-id nil)
          (compilation-done nil)
@@ -81,75 +187,28 @@
             (should (equal (lilypond-ts-test--read-nav-overlays)
                            lilypond-ts-test--nav-overlay-ref))
             (should-not (seq-difference
-                         (list file1 file2)
                          (cdr (assq (setq score-id
                                           (get-char-property 89 :score-id))
                                     lilypond-ts--score-id-alist))
+                         (list file1 file2)
                          #'file-equal-p))
-            (save-excursion
-              (goto-char 233)
-              (lilypond-ts-up-moment 1)
-              (should (eq (point) 290)))
-            (save-excursion
-              (goto-char 266)
-              (lilypond-ts-down-moment 1)
-              (should (eq (point) 208)))
-            (save-excursion
-              (goto-char 233)
-              (lilypond-ts-down-moment 1)
-              (should (eq (point) 108)))
-            (save-excursion
-              (goto-char 138)
-              (lilypond-ts-forward-moment 1)
-              (should (eq (point) 140)))
-            (save-excursion
-              (goto-char 140)
-              (lilypond-ts-backward-moment 1)
-              (should (eq (point) 135)))
-            (save-excursion
-              (goto-char 291)
-              (lilypond-ts-forward-moment 1)
-              (should (eq (point) 309)))
-            (save-excursion
-              (goto-char 200)
-              (lilypond-ts-backward-moment 1)
-              (should (eq (point) 185)))
-            (save-excursion
-              (goto-char 208)
-              (lilypond-ts-forward-measure 1)
-              (should (eq (point) 218)))
-            (save-excursion
-              (goto-char 179)
-              (lilypond-ts-forward-measure 1)
-              (should (eq (point) 204)))
-            (save-excursion
-              (goto-char 108)
-              (lilypond-ts-backward-measure 1)
-              (should (eq (point) 89)))
-            (save-excursion
-              (goto-char 333)
-              (lilypond-ts-backward-measure 1)
-              (should (eq (point) 329)))
-            (unwind-protect
-                (save-excursion
-                  (goto-char 140)
-                  (lilypond-ts-set-goal-moment)
-                  (should (assq score-id lilypond-ts--goal-moments))
-                  (lilypond-ts-down-moment 1)
-                  (should (eq (point) 89))
-                  (lilypond-ts-up-moment 1)
-                  (should (eq (point) 140))
-                  (lilypond-ts-set-goal-moment t)
-                  (should-not (assq score-id lilypond-ts--goal-moments)))
-              (setf (alist-get score-id lilypond-ts--goal-moments nil t) nil))
-            (save-excursion
-              (goto-char 295)
-              (lilypond-ts-up-moment 1)
-              (should (eq (point) 98))
-              (should (file-equal-p (buffer-file-name (current-buffer)) file2))
-              (lilypond-ts-up-moment 1)
-              (should (file-equal-p (buffer-file-name (current-buffer)) file1))
-              (should (eq (point) 108)))))
+            (lilypond-ts-test--up-down-moment)
+            (lilypond-ts-test--forward-back-moment)
+            (lilypond-ts-test--forward-back-measure)
+            (lilypond-ts-test--goal-moment score-id)
+            (lilypond-ts-test--up-moment-across-files file1 file2)
+            (let ((offsets (with-silent-modifications
+                             (lilypond-ts-test--modify-buffer-saving-offsets
+                              205 "\\accent"
+                              145 "\n  e1\n  f1\n  g1"
+                              75 "\n% This is a comment\n"))))
+              (ert-info ("with modified buffer" :prefix "Nav test: ")
+                (apply #'lilypond-ts-test--up-down-moment offsets)
+                (apply #'lilypond-ts-test--forward-back-moment offsets)
+                (apply #'lilypond-ts-test--forward-back-measure offsets)
+                (apply #'lilypond-ts-test--goal-moment score-id offsets)
+                (apply #'lilypond-ts-test--up-moment-across-files
+                       file1 file2 offsets)))))
       (message "Cleaning up from navigation tests")
       (kill-buffer (find-buffer-visiting file1))
       (kill-buffer (find-buffer-visiting file2))

@@ -175,83 +175,7 @@ use that instead of the current buffer filename."
         (setf (alist-get nav-dir lilypond-ts--watchers nil t #'file-equal-p)
               nil)))))
 
-;; Go to beginning/end of overlay depending on = or < moment
-(defun lilypond-ts-forward-same-moment (&optional n)
-  "Move to the same musical moment in the next musical expression belonging to
-the same score-id. With prefix argument N, move that many musical expressions
-forward or, for negative N, backward. If an expression has no music for the exact
-moment, move to the nearest earlier moment. Expressions where the moment is out
-of bounds will be skipped. If lilypond-ts--goal-moments has a non-nil value for
-this score-id, use that moment instead of the moment at point. When the last
-music expression is reached, wrap around to the first."
-  (interactive "p")
-  (and-let* ((pos (point))
-             (score-id (get-char-property pos :score-id))
-             (this-moment (or (alist-get score-id lilypond-ts--goal-moments)
-                              (get-char-property pos :moment)))
-             (index (get-char-property pos :index))
-             (nav-table (alist-get score-id
-                                   lilypond-ts--moment-navigation-table))
-             (rotated-table (append (seq-drop nav-table index)
-                                    (seq-take nav-table index)))
-             (bounded-table (seq-filter (lambda (t)
-                                          (and (< this-moment (cdaar t))
-                                               (<= (caaar (last t)) this-moment)))
-                                        rotated-table))
-             ((length> bounded-table 1))
-             (dest-index (mod n (length bounded-table)))
-             (dest-nav-alist (nth dest-index bounded-table))
-             (dest (cl-assoc this-moment dest-nav-alist :key #'car :test #'>=)))
-    (apply #'lilypond-ts--go-to-loc (cadr dest))))
-
-(defun lilypond-ts--next-segment (score-id &optional initial-pos backward)
-  (cl-loop with search-fun = (if backward
-                                 #'previous-single-char-property-change
-                               #'next-single-char-property-change)
-           for pos = (or initial-pos (point)) then (if ov
-                                                       (if backward
-                                                           (overlay-start ov)
-                                                         (overlay-end ov))
-                                                     (funcall search-fun
-                                                              pos :nav-index))
-           for (index . ov) = (get-char-property-and-overlay pos :nav-index)
-           until (or (>= (point-min) pos)
-                     (<= (point-max) pos))
-           when (and index ov (if backward
-                                  (< (overlay-end ov) (point))
-                                (< (point) (overlay-start ov)))
-                     (eq score-id (overlay-get ov :score-id)))
-           return ov))
-
-(defun lilypond-ts--forward-same-moment (&optional backward)
-  (cl-loop with score-id = (get-char-property (point) :score-id)
-           with score-files = (cdr (assq score-id lilypond-ts--score-id-alist))
-           with m = (or (cdr (assq score-id lilypond-ts--goal-moments))
-                        (get-char-property (point) :moment))
-           with j0 = (seq-position score-files (buffer-file-name))
-           with jn = (length score-files)
-           for j from 0 to (1- jn)
-           for segment = (lilypond-ts--next-segment score-id nil backward)
-           then (with-current-buffer
-                    (find-file-noselect
-                     (nth (mod (+ j0 (* j (if backward -1 1))) jn)
-                          score-files))
-                  (lilypond-ts--next-segment score-id (point-min) backward))
-           for beg = (when segment (overlay-start segment))
-           for end = (when segment (overlay-end segment))
-           for buf = (when segment (overlay-buffer segment))
-           until (and segment
-                      (eq buf (current-buffer))
-                      (<= beg (point))
-                      (< (point) end))
-           when (and segment
-                     (<= (get-char-property beg :moment buf) m)
-                     (< m (get-char-property end :end-moment buf)))
-           thereis (cl-find m (overlays-in beg end)
-                            :key (lambda (ov)
-                                   (or (overlay-get ov :moment)
-                                       (1+ m)))
-                            :test #'>= :from-end t)))
+;;; Navigation commands
 
 (defun lilypond-ts--next-closest-overlay (prop init-pos &optional backward)
   (cl-loop with search-fun = (if backward
@@ -298,27 +222,36 @@ music expression is reached, wrap around to the first."
               then (overlay-start segment)
               for end = (if backward start-pos (overlay-end segment))
               then (overlay-end segment)
+              for right-bound = (get-char-property (1- end) :end-moment)
+              unless (and right-bound (<= right-bound m))
               when (eq score-id (overlay-get segment :score-id))
-              thereis (cl-find-if (lambda (ov)
-                                    (when-let
-                                        ((m-beg (overlay-get ov :moment))
-                                         (m-end (overlay-get ov :end-moment)))
-                                      (and (<= m-beg m)
-                                           (< m m-end))))
-                                  (overlays-in beg end))))))
+              thereis (cl-loop for ov in (overlays-in beg end)
+                               for beg-mom = (overlay-get ov :moment)
+                               for end-mom = (overlay-get ov :end-moment)
+                               until (and beg-mom (< m beg-mom))
+                               when (and end-mom (< m end-mom)) return ov)))))
 
-(defun lilypond-ts-up-moment (&optional backward)
-  (interactive "P")
-  (when-let ((dest-overlay (lilypond-ts--forward-same-moment backward))
-             (buf (overlay-buffer dest-overlay)))
-    (unless (eq buf (current-buffer))
-      (pop-to-buffer buf))
-    ;; (goto-char (if backward
-    ;;                (overlay-start dest-overlay)
-    ;;              (overlay-end dest-overlay)))
-    (goto-char (overlay-start dest-overlay))))
+(defun lilypond-ts-up-moment (&optional n)
+  "Move to the same musical moment in the next musical expression belonging to
+the same score-id. With prefix argument N, move that many musical expressions
+forward or, for negative N, backward. If an expression has no music for the
+exact moment, move to the nearest earlier moment. Expressions where the moment
+is out of bounds will be skipped. If lilypond-ts--goal-moments has a non-nil
+value for this score-id, use that moment instead of the moment at point. When
+the last music expression is reached, wrap around to the first."
+  (interactive "p")
+  (dotimes (_ (abs n))
+    (when-let ((dest-overlay (lilypond-ts--forward-same-moment (> 0 n)))
+               (buf (overlay-buffer dest-overlay)))
+      (unless (eq buf (current-buffer))
+        (pop-to-buffer buf))
+      ;; (goto-char (if backward
+      ;;                (overlay-start dest-overlay)
+      ;;              (overlay-end dest-overlay)))
+      (goto-char (overlay-start dest-overlay))))
+  (point))
 
-(defsubst lilypond-ts-backward-same-moment (&optional n)
+(defsubst lilypond-ts-down-moment (&optional n)
   "Move to the same musical moment in the previous musical expression. With
 prefix argument N, move that many musical expressions backward or, for negative
 N, forward. If an expression has no music for the exact moment, move to the
@@ -326,7 +259,7 @@ nearest earlier moment. If lilypond-ts--goal-moments has a non-nil value for
 this score-id, use that moment instead of the moment at point. When the last
 music expression is reached, wrap around to the first."
   (interactive "p")
-  (lilypond-ts-forward-same-moment (- n)))
+  (lilypond-ts-up-moment (- n)))
 
 (defun lilypond-ts-set-goal-moment (&optional unset)
   "Update the entry in lilypond-ts--goal-moments for the :score-id at point to
@@ -371,8 +304,8 @@ forwards."
 (defvar-keymap lilypond-ts-navigation-mode-map
   "<remap> <forward-sentence>" #'lilypond-ts-forward-moment
   "<remap> <backward-sentence>" #'lilypond-ts-backward-moment
-  "<remap> <forward-paragraph>" #'lilypond-ts-forward-same-moment
-  "<remap> <backward-paragraph>" #'lilypond-ts-backward-same-moment
+  "<remap> <forward-paragraph>" #'lilypond-ts-up-moment
+  "<remap> <backward-paragraph>" #'lilypond-ts-down-moment
   "C-c C-n" 'lilypond-ts-set-goal-moment)
 
 (define-minor-mode lilypond-ts-navigation-mode

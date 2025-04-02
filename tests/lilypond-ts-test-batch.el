@@ -23,9 +23,13 @@
 
 (require 'lilypond-ts-base)
 (require 'cl-lib)
+(require 'ert)
 
 (defun lilypond-ts-test--run-batch-tests ()
   (interactive)
+  (pop-to-buffer "*LilyPond TS Tests*")
+  (goto-char (point-max))
+  (ert-simple-view-mode)
   (let ((test-process
          (start-process "emacs - lilypond-ts-mode batch tests"
                         "*LilyPond TS Tests*"

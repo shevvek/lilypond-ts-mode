@@ -287,16 +287,42 @@ backwards."
         (cl-incf i)))
     (point)))
 
-(defsubst lilypond-ts-backward-moment (&optional n)
+(defun lilypond-ts-backward-moment (&optional n)
   "Move backward to the next musical moment before point in the current music
 expression. With prefix argument N, do it N times. For negative arg -N, move
 forwards."
   (interactive "p")
   (lilypond-ts-forward-moment (- n)))
 
+(defun lilypond-ts-forward-measure (&optional n)
+  "Move forward to the next musical moment after point in the current music
+expression. With prefix argument N, do it N times. For negative arg -N, move
+backwards."
+  (interactive "p")
+  (let* ((i 0)
+         (backward (< n 0))
+         (search-fun (if backward
+                         #'previous-single-char-property-change
+                       #'next-single-char-property-change)))
+    (while (and (not (if backward (bobp) (eobp)))
+                (< i (abs n)))
+      (goto-char (funcall search-fun (point) :bar-number))
+      (when (get-char-property (point) :bar-number)
+        (cl-incf i)))
+    (point)))
+
+(defun lilypond-ts-backward-measure (&optional n)
+  "Move backward to the next musical moment before point in the current music
+expression. With prefix argument N, do it N times. For negative arg -N, move
+forwards."
+  (interactive "p")
+  (lilypond-ts-forward-measure (- n)))
+
 (defvar-keymap lilypond-ts-navigation-mode-map
-  "<remap> <forward-sentence>" #'lilypond-ts-forward-moment
-  "<remap> <backward-sentence>" #'lilypond-ts-backward-moment
+  "<remap> <forward-word>" #'lilypond-ts-forward-moment
+  "<remap> <backward-word>" #'lilypond-ts-backward-moment
+  "<remap> <forward-sentence>" #'lilypond-ts-forward-measure
+  "<remap> <backward-sentence>" #'lilypond-ts-backward-measure
   "<remap> <forward-paragraph>" #'lilypond-ts-up-moment
   "<remap> <backward-paragraph>" #'lilypond-ts-down-moment
   "C-c C-n" 'lilypond-ts-set-goal-moment)

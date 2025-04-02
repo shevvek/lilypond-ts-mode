@@ -18,6 +18,7 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-run)
 (require 'filenotify)
+(require 'thingatpt)
 
 (defvar lilypond-ts--nav-update-tick 0)
 
@@ -277,22 +278,14 @@ starting moment whenever an expression lacks music at the exact same moment."
 expression. With prefix argument N, do it N times. For negative arg -N, move
 backwards."
   (interactive "p")
-  (and-let* ((pos (point))
-             (this-moment (get-char-property pos :moment))
-             (score-id (get-char-property pos :score-id))
-             (voice-index (get-char-property pos :index))
-             (score-table (alist-get score-id
-                                     lilypond-ts--moment-navigation-table))
-             (my-table (nth voice-index score-table))
-             (moment-index (seq-position my-table this-moment
-                                         (lambda (elt now)
-                                           (= (caar elt) now))))
-             ;; Subtract n because the moment list is backwards
-             (dest-index (- moment-index n))
-             (max-index (1- (length my-table)))
-             (dest-loc (nth (if (< max-index dest-index) max-index dest-index)
-                            my-table)))
-    (apply #'lilypond-ts--go-to-loc (cadr dest-loc))))
+  (let ((i 0)
+        (backward (< n 0)))
+    (while (and (not (if backward (bobp) (eobp)))
+                (< i (abs n)))
+      (forward-thing-for-char-property :moment backward)
+      (when (get-char-property (point) :moment)
+        (cl-incf i)))
+    (point)))
 
 (defsubst lilypond-ts-backward-moment (&optional n)
   "Move backward to the next musical moment before point in the current music

@@ -98,14 +98,22 @@
               (goto-char 233)
               (lilypond-ts-down-moment 1)
               (should (eq (point) 108)))
-            ;; (save-excursion
-            ;;   (goto-char 233)
-            ;;   (lilypond-ts-forward-moment 1)
-            ;;   (should (eq (point) 233)))
-            ;; (save-excursion
-            ;;   (goto-char 200)
-            ;;   (lilypond-ts-backward-moment 1)
-            ;;   (should (eq (point) 183)))
+            (save-excursion
+              (goto-char 138)
+              (lilypond-ts-forward-moment 1)
+              (should (eq (point) 140)))
+            (save-excursion
+              (goto-char 140)
+              (lilypond-ts-backward-moment 1)
+              (should (eq (point) 135)))
+            (save-excursion
+              (goto-char 291)
+              (lilypond-ts-forward-moment 1)
+              (should (eq (point) 309)))
+            (save-excursion
+              (goto-char 200)
+              (lilypond-ts-backward-moment 1)
+              (should (eq (point) 185)))
             (unwind-protect
                 (save-excursion
                   (goto-char 140)

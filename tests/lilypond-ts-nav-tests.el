@@ -43,6 +43,11 @@
     (325 329 6 6.25 nil)   (329 331 6.25 6.5 nil)  (331 333 6.5 6.75 nil)
     (333 337 6.75 7 nil)   (337 342 7 7.75 nil)))
 
+(defconst lilypond-ts-test--full-nav-line-ref
+  (rx "  Position (1 : 0)    (-0 : -0.25) -0.25 <"
+      (* "=") "|G|" (* "=")
+      "> +3.75    Goal (1 : 0.25)  "))
+
 (defun lilypond-ts-test--read-nav-overlays (&optional buffer)
   "List (START END MOMENT INDEX) for BUFFER or the current buffer's overlays."
   (cl-loop for ov being the overlays of (or buffer (current-buffer))
@@ -151,6 +156,13 @@
         (lilypond-ts-down-moment 1)
         (ert-info ("down moment with goal" :prefix "Nav test: ")
           (should (eq (point) (lilypond-ts-test--apply-char-offsets 89 offsets))))
+        (unless noninteractive
+          (ert-info ("header line with duration bar" :prefix "Nav test: ")
+            (message "%s" (format-mode-line
+                           (lilypond-ts--rhythmic-position-line)))
+            (should (string-match-p lilypond-ts-test--full-nav-line-ref
+                                    (format-mode-line
+                                     (lilypond-ts--rhythmic-position-line))))))
         (lilypond-ts-up-moment 1)
         (ert-info ("up moment with goal" :prefix "Nav test: ")
           (should (eq (point) (lilypond-ts-test--apply-char-offsets 140 offsets))))

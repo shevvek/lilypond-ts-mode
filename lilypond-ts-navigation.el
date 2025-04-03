@@ -59,6 +59,17 @@
 Values are plists with the same format as navigation overlays.")
 
 (defun lilypond-ts--put-moment-overlays (nav-table)
+  "Update current buffer with rhythmic metadata overlays from NAV-TABLE.
+
+Since LilyPond input locations are line, char, column rather than byte position,
+for efficiency exported navigation data is sorted strictly by input location.
+This allows for iterating over NAV-TABLE and over the buffer in only one pass.
+
+Boundaries of sequential music expressions are inferred wherever textually
+adjacent rhythmic events are not strictly sequential in musical time.  In
+addition to overlays for each discrete rhythmic event, overlays are created to
+span each sequential music expression, with :nav-index as the distinguishing
+property."
   (save-excursion
     (cl-loop with tick = (setq lilypond-ts--nav-update-tick
                                (1+ lilypond-ts--nav-update-tick))

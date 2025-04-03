@@ -147,7 +147,7 @@
       (save-excursion
         (goto-char (lilypond-ts-test--apply-char-offsets 140 offsets))
         (lilypond-ts-set-goal-moment)
-        (should (assq score-id lilypond-ts--goal-moments))
+        (should (assq score-id lilypond-ts--goal-moment-alist))
         (lilypond-ts-down-moment 1)
         (ert-info ("down moment with goal" :prefix "Nav test: ")
           (should (eq (point) (lilypond-ts-test--apply-char-offsets 89 offsets))))
@@ -155,8 +155,8 @@
         (ert-info ("up moment with goal" :prefix "Nav test: ")
           (should (eq (point) (lilypond-ts-test--apply-char-offsets 140 offsets))))
         (lilypond-ts-set-goal-moment t)
-        (should-not (assq score-id lilypond-ts--goal-moments)))
-    (setf (alist-get score-id lilypond-ts--goal-moments nil t) nil)))
+        (should-not (assq score-id lilypond-ts--goal-moment-alist)))
+    (setf (alist-get score-id lilypond-ts--goal-moment-alist nil t) nil)))
 
 (ert-deftest lilypond-ts-test--navigation-tests ()
   (let* ((score-id nil)
@@ -212,7 +212,7 @@
       (message "Cleaning up from navigation tests")
       (kill-buffer (find-buffer-visiting file1))
       (kill-buffer (find-buffer-visiting file2))
-      (setf (alist-get score-id lilypond-ts--moment-navigation-table nil t) nil)
+      (setf (alist-get score-id lilypond-ts--score-id-alist nil t) nil)
       (lilypond-ts--maybe-remove-nav-watcher temp-dir)
       (delete-directory temp-dir t)
       (should-not (cl-assoc temp-dir lilypond-ts--watchers

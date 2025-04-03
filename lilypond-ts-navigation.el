@@ -15,6 +15,28 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with lilypond-ts-mode.  If not, see <https://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;; A minor mode to enable navigation features that facilitate performing edits
+;; to the same rhythmic position across all parts in a score, for example adding
+;; or removing measures -- traditionally a tedious task with LilyPond.
+
+;; Currently the key features are navigation commands and a header line
+;; displaying rhythmic information.
+
+;; This relies on the injection of a Scheme library during LilyPond compilation,
+;; which exports rhythmic metadata for each input location corresponding to a
+;; discrete rhythmic event.  The key idea is that LilyPond can export a single
+;; location-sorted list of rhythmic events for every context in a score, and the
+;; boundaries of separate sequential expressions can be inferred anywhere the
+;; rhythmic position of events does not ascend continuously.  Overlays are used
+;; for both per-event rhythmic data and for sequential segments, so that
+;; navigation features will be useful in modified buffers.  Emacs uses file
+;; notification watchers to automatically load rhythmic metadata, which is
+;; somewhat prone to OS-specific issues.
+
+;;; Code:
+
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-run)
 (require 'filenotify)
@@ -23,25 +45,15 @@
 (defvar lilypond-ts--nav-update-tick 0)
 
 (defvar lilypond-ts--watchers nil
-  "Internal list tracking active file notification watchers belonging to
-lilypond-ts-mode.")
+  "Active file notification watchers belonging to lilypond-ts-mode.")
 
-(defvar lilypond-ts--moment-navigation-table nil
-  "Alist storing the moment navigation table for each score-id. Each table is a
-list of alists with elements of form:
+(defvar lilypond-ts--score-id-alist nil
+  "Alist storing the list of score-ids with navigation overlays in each file.")
 
-((beg-moment . end-moment) (filename line char col) export-props)
+(defvar lilypond-ts--goal-moment-alist nil
+  "Alist storing the goal moment for each score-id.
 
-Each element alist represents one music expression available to cycle via
-forward/backward same-moment, mapping the musical timing of every rhythmic event
-within that expression, in reverse order, to the corresponding input location.
-The alists are in the same order as expressions appear in the code, or in score
-order for expressions in separate files.")
-
-(defvar lilypond-ts--score-id-alist nil)
-
-(defvar lilypond-ts--goal-moments nil
-  "Alist storing the goal moment for each score-id.")
+Values are plists with the same format as navigation overlays.")
 
 (defun lilypond-ts--put-moment-overlays (nav-table)
   (save-excursion
@@ -192,7 +204,7 @@ use that instead of the current buffer filename."
   (save-current-buffer
     (cl-loop
      with score-id = (get-char-property (point) :score-id)
-     with m = (or (plist-get (cdr (assq score-id lilypond-ts--goal-moments))
+     with m = (or (plist-get (cdr (assq score-id lilypond-ts--goal-moment-alist))
                              :moment)
                   (get-char-property (point) :moment)
                   (get-char-property
@@ -238,7 +250,7 @@ use that instead of the current buffer filename."
 the same score-id. With prefix argument N, move that many musical expressions
 forward or, for negative N, backward. If an expression has no music for the
 exact moment, move to the nearest earlier moment. Expressions where the moment
-is out of bounds will be skipped. If lilypond-ts--goal-moments has a non-nil
+is out of bounds will be skipped. If lilypond-ts--goal-moment-alist has a non-nil
 value for this score-id, use that moment instead of the moment at point. When
 the last music expression is reached, wrap around to the first."
   (interactive "p")
@@ -257,21 +269,21 @@ the last music expression is reached, wrap around to the first."
   "Move to the same musical moment in the previous musical expression. With
 prefix argument N, move that many musical expressions backward or, for negative
 N, forward. If an expression has no music for the exact moment, move to the
-nearest earlier moment. If lilypond-ts--goal-moments has a non-nil value for
+nearest earlier moment. If lilypond-ts--goal-moment-alist has a non-nil value for
 this score-id, use that moment instead of the moment at point. When the last
 music expression is reached, wrap around to the first."
   (interactive "p")
   (lilypond-ts-up-moment (- n)))
 
 (defun lilypond-ts-set-goal-moment (&optional unset)
-  "Update the entry in lilypond-ts--goal-moments for the :score-id at point to
+  "Update the entry in lilypond-ts--goal-moment-alist for the :score-id at point to
 the value of :moment at point, or with prefix argument UNSET to nil. This allows
 forward-same-moment and backward-same-moment to cycle through all music
 expressions in relation to the same moment, instead of drifting away from the
 starting moment whenever an expression lacks music at the exact same moment."
   (interactive "P")
   (when-let ((score-id (get-char-property (point) :score-id)))
-    (setf (alist-get score-id lilypond-ts--goal-moments nil t)
+    (setf (alist-get score-id lilypond-ts--goal-moment-alist nil t)
           (unless unset
             `( :moment ,(get-char-property (point) :moment)
                :bar-number ,(get-char-property (point) :bar-number)
@@ -328,6 +340,167 @@ forwards."
   "Settings for `lilypond-ts-navigation-mode'."
   :group 'lilypond-ts)
 
+(defcustom lilypond-ts-nav-line-position-format
+  "  Position (%1$d : %2$.5s)    "
+  "Format string for displaying the current rhythmic position in the header.
+
+Substitution groups 1-3 are available as follows:
+
+  1. Bar number
+  2. Bar position
+  3. Current moment"
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-goal-format
+  "    Goal (%1$d : %2$.5s)  "
+  "Format string for displaying the current goal moment in the header.
+
+Substitution groups 1-3 are available as follows:
+
+  1. Bar number
+  2. Bar position
+  3. Goal moment"
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-left-span-format
+  "(-%1$d : -%2$.5s) -%3$.5s"
+  "Format string for displaying the span from current position to goal moment.
+
+Substitution groups 1-3 are available as follows:
+
+  1. Bar number span
+  2. Bar position span
+  3. Total moment span"
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-right-span-format
+  "+%3$.5s"
+  "Format string for displaying the span from goal to the end of current note.
+
+Currently only the total moment is available, but for consistency it is
+substitution group 3.  Substitution groups 1 and 2 are reserved for bar number
+and bar position span should that data become available in the future.  For now,
+these groups will be nil."
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-position-help-format
+  "Current position: bar %1$d, remainder %2$.5s"
+  "Tooltip format string for the nav line current position display.
+
+Substitution groups 1-3 are available as follows:
+
+  1. Bar number
+  2. Bar position
+  3. Current moment"
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-goal-help-format
+  "Navigation goal moment: bar %1$d, remainder %2$.5s"
+  "Tooltip format string for the nav line goal moment display.
+
+Substitution groups 1-3 are available as follows:
+
+  1. Bar number
+  2. Bar position
+  3. Goal moment"
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-left-span-help-format
+  "From current position to goal: %1$d bars, remainder %2$.5s, total %3$.5s"
+  "Tooltip format string for the nav line left duration bar data.
+
+Substitution groups 1-3 are available as follows:
+
+  1. Bar number span
+  2. Bar position span
+  3. Total moment span"
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-right-span-help-format
+  "From goal to end of current note or rest: total %3$.5s"
+  "Tooltip format string for the nav line right duration bar data.
+
+Currently only the total moment is available, but for consistency it is
+substitution group 3.  Substitution groups 1 and 2 are reserved for bar number
+and bar position span should that data become available in the future.  For now,
+these groups will be nil."
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-line-goal-marker "|G|"
+  "String for marking the goal moment position relative to the current note."
+  :group 'lilypond-ts-navigation
+  :type 'string)
+
+(defcustom lilypond-ts-nav-duration-bar-fill ?\=
+  "Fill character for displaying duration of current note relative to goal."
+  :group 'lilypond-ts-navigation
+  :type 'character)
+
+(defcustom lilypond-ts-nav-duration-bar-ends '("<" . ">")
+  "Left and right end strings for the duration bar."
+  :group 'lilypond-ts-navigation
+  :type '(cons string string))
+
+(defcustom lilypond-ts-nav-line-brackets '("" . "")
+  "Left and right brackets to enclose the duration bar section of the nav line.
+
+These are most helpful with `lilypond-ts-nav-line-always-duration-bar' t, to
+indicate whether goal moment is within the duration bounds of the current note."
+  :group 'lilypond-ts-navigation
+  :type '(cons string string))
+
+(defcustom lilypond-ts-nav-line-always-duration-bar nil
+  "Toggle display of duration bar current note does not overlap goal moment.
+
+Duration bar will always be shown when the goal moment is within the current
+note or rest's duration."
+  :group 'lilypond-ts-navigation
+  :type 'boolean)
+
+(defface lilypond-ts-duration-bar-left-face
+  '((t :inherit diff-added))
+  "Face for displaying the left portion of the nav line duration bar."
+  :group 'lilypond-ts-navigation)
+
+(defface lilypond-ts-duration-bar-right-face
+  '((t :inherit diff-removed))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-navigation)
+
+(defface lilypond-ts-duration-bar-goal-face
+  nil
+  "Face for displaying the goal marker of the nav line duration bar."
+  :group 'lilypond-ts-navigation)
+
+(defface lilypond-ts-duration-bar-bracket-face
+  nil
+  "Face for displaying the brackets around the nav line duration bar."
+  :group 'lilypond-ts-navigation)
+
+(defface lilypond-ts-nav-line-position-face
+  nil
+  "Face for displaying the current rhythmic position in the nav line."
+  :group 'lilypond-ts-navigation)
+
+(defface lilypond-ts-nav-line-goal-face
+  nil
+  "Face for displaying the goal moment in the nav line."
+  :group 'lilypond-ts-navigation)
+
+(defcustom lilypond-ts--nav-mode-line-format
+  '((:eval (lilypond-ts--rhythmic-position-line)))
+  "Header format to display rhythmic position, goal moment, and duration bar."
+  :type 'sexp
+  :group 'lilypond-ts-navigation)
+
 (defun lilypond-ts--rhythmic-position-line ()
   (let* ((curr-bar (get-char-property (point) :bar-number))
          (curr-beat (get-char-property (point) :bar-position))
@@ -336,7 +509,7 @@ forwards."
          (curr-duration (and curr-moment curr-end
                              (- curr-end curr-moment)))
          (goal-plist (cdr (assq (get-char-property (point) :score-id)
-                                lilypond-ts--goal-moments)))
+                                lilypond-ts--goal-moment-alist)))
          (goal-bar (plist-get goal-plist :bar-number))
          (goal-beat (plist-get goal-plist :bar-position))
          (goal-moment (plist-get goal-plist :moment))
@@ -350,60 +523,96 @@ forwards."
                                    (- goal-beat curr-beat)))
          (curr-string (and curr-bar curr-beat
                            (propertize
-                            (format "  Position (%d : %.5s)    "
-                                    curr-bar curr-beat)
+                            (format lilypond-ts-nav-line-position-format
+                                    curr-bar curr-beat curr-moment)
+                            'face 'lilypond-ts-nav-line-position-face
                             'help-echo (format
-                                        "Current position: bar %d, remainder %.5s"
-                                        curr-bar curr-beat))))
+                                        lilypond-ts-nav-line-position-help-format
+                                        curr-bar curr-beat curr-moment))))
          (goal-string (and goal-bar goal-beat
                            (propertize
-                            (format "    Goal (%d : %.5s)  " goal-bar goal-beat)
-                            ;;'face 'geiser-font-lock-autodoc-current-arg
+                            (format lilypond-ts-nav-line-goal-format
+                                    goal-bar goal-beat goal-moment)
+                            'face 'lilypond-ts-nav-line-goal-face
                             'help-echo
                             (format
-                             "Navigation goal moment: bar %d, remainder %.5s"
-                             goal-bar goal-beat))))
+                             lilypond-ts-nav-line-goal-help-format
+                             goal-bar goal-beat goal-moment))))
          (left-data-string (and goal-left-bar-diff goal-left-beat-diff
                                 goal-left-duration (< 0 goal-left-duration)
                                 (propertize
-                                 (format "-(%d : %.5s) -%.5s" goal-left-bar-diff
+                                 (format lilypond-ts-nav-line-left-span-format
+                                         goal-left-bar-diff
                                          goal-left-beat-diff goal-left-duration)
-                                 'face 'diff-added 'help-echo
+                                 'face 'lilypond-ts-duration-bar-left-face
+                                 'help-echo
                                  (format
-                                  "From current position to goal: %d bars, remainder %.5s, total %.5s"
+                                  lilypond-ts-nav-line-left-span-help-format
                                   goal-left-bar-diff goal-left-beat-diff
                                   goal-left-duration))))
          (right-data-string (and goal-right-duration (< 0 goal-right-duration)
                                  (propertize
-                                  (format "+%.5s" goal-right-duration)
-                                  'face 'diff-removed 'help-echo
+                                  (format lilypond-ts-nav-line-right-span-format
+                                          nil nil goal-right-duration)
+                                  'face 'lilypond-ts-duration-bar-right-face
+                                  'help-echo
                                   (format
-                                   "From goal to end of current note or rest: total %.5s"
-                                   goal-right-duration))))
+                                   lilypond-ts-nav-line-right-span-help-format
+                                   nil nil goal-right-duration))))
          (right-align-length (- (window-width) (length goal-string)))
-         (pad-width (- right-align-length 5 (length curr-string)
-                       (length left-data-string) (length right-data-string)))
+         (pad-width (apply #'- right-align-length
+                           (mapcar #'length
+                                   (list "  " curr-string
+                                         left-data-string
+                                         right-data-string
+                                         (car lilypond-ts-nav-line-brackets)
+                                         (cdr lilypond-ts-nav-line-brackets)
+                                         lilypond-ts-nav-line-goal-marker))))
          (left-pad (and left-data-string
                         (min pad-width (round (* pad-width
                                                  (abs goal-left-duration))
                                               curr-duration))))
          (right-pad (and right-data-string (- pad-width (or left-pad 0))))
-         (left-bar (and left-pad (propertize (string-pad " <" left-pad ?\=)
-                                             'face 'diff-added)))
-         (right-bar (and right-pad (propertize (string-pad "> " right-pad ?\= t)
-                                               'face 'diff-removed))))
-    `(( ,right-align-length ,(or curr-string "")
-        . ,(when (and left-data-string right-data-string
-                      curr-string goal-string )
-             `(,(when left-data-string "[") ,left-data-string
-               ,(unless right-data-string "]") ,left-bar
-               "|G|"
-               ,right-bar ,(unless left-data-string "[")
-               ,right-data-string ,(when right-data-string "]"))))
-      ,goal-string)))
-
-(defvar lilypond-ts--nav-mode-line-format
-  '((:eval (lilypond-ts--rhythmic-position-line))))
+         (left-bar (and left-pad
+                        (propertize
+                         (string-pad (car lilypond-ts-nav-duration-bar-ends)
+                                     left-pad
+                                     lilypond-ts-nav-duration-bar-fill)
+                         'face 'lilypond-ts-duration-bar-left-face)))
+         (right-bar (and right-pad
+                         (propertize
+                          (string-pad (cdr lilypond-ts-nav-duration-bar-ends)
+                                      right-pad
+                                      lilypond-ts-nav-duration-bar-fill t)
+                          'face 'lilypond-ts-duration-bar-right-face))))
+    (list
+     (list right-align-length
+           (or curr-string "")
+           (when (and (or lilypond-ts-nav-line-always-duration-bar
+                          (and left-data-string right-data-string))
+                      curr-string goal-string)
+             (list
+              (when left-data-string
+                `(:propertize ,(car lilypond-ts-nav-line-brackets)
+                              face lilypond-ts-duration-bar-bracket-face))
+              left-data-string
+              (unless right-data-string
+                `(:propertize ,(cdr lilypond-ts-nav-line-brackets)
+                              face lilypond-ts-duration-bar-bracket-face))
+              " "
+              left-bar
+              `(:propertize ,lilypond-ts-nav-line-goal-marker
+                            face lilypond-ts-duration-bar-goal-face)
+              right-bar
+              " "
+              (unless left-data-string
+                `(:propertize ,(car lilypond-ts-nav-line-brackets)
+                              face lilypond-ts-duration-bar-bracket-face))
+              right-data-string
+              (when right-data-string
+                `(:propertize ,(cdr lilypond-ts-nav-line-brackets)
+                              face lilypond-ts-duration-bar-bracket-face)))))
+     goal-string)))
 
 (defvar-keymap lilypond-ts-navigation-mode-map
   "<remap> <forward-word>" #'lilypond-ts-forward-moment
@@ -414,6 +623,8 @@ forwards."
   "<remap> <backward-paragraph>" #'lilypond-ts-down-moment
   "C-c C-n" 'lilypond-ts-set-goal-moment)
 
+(defvar-local lilypond-ts--nav-mode-restore-state nil)
+
 (define-minor-mode lilypond-ts-navigation-mode
   "Minor mode enabling rhythm-aware navigation in LilyPond code.
 
@@ -423,10 +634,14 @@ running `lilypond-ts-compile'."
   :lighter "/N"
   :group 'lilypond-ts-navigation
   (if lilypond-ts-navigation-mode
-      (lilypond-ts--init-nav-watcher)
-    (lilypond-ts--maybe-remove-nav-watcher))
-  (buffer-local-set-state
-   header-line-format lilypond-ts--nav-mode-line-format))
+      (progn
+        (lilypond-ts--init-nav-watcher)
+        (setq-local lilypond-ts--nav-mode-restore-state
+                    (buffer-local-set-state
+                     header-line-format lilypond-ts--nav-mode-line-format)))
+    (lilypond-ts--maybe-remove-nav-watcher)
+    (buffer-local-restore-state lilypond-ts--nav-mode-line-format)
+    (setq-local lilypond-ts--nav-mode-restore-state nil)))
 
 (provide 'lilypond-ts-navigation)
 ;;; lilypond-ts-navigation.el ends here

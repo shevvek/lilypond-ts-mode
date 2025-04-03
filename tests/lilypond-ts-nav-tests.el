@@ -198,6 +198,9 @@
             (should (assoc nav-dir lilypond-ts--watchers #'file-equal-p))
             (should (equal (lilypond-ts-test--read-nav-overlays)
                            lilypond-ts-test--nav-overlay-ref))
+            (should-not (find-buffer-visiting file2))
+            (should (alist-get file2 lilypond-ts--nav-data-update-stack
+                               nil nil #'file-equal-p))
             (should-not (seq-difference
                          (cdr (assq (setq score-id
                                           (get-char-property 89 :score-id))
@@ -209,6 +212,8 @@
             (lilypond-ts-test--forward-back-measure)
             (lilypond-ts-test--goal-moment score-id)
             (lilypond-ts-test--up-moment-across-files file1 file2)
+            (should-not (alist-get file2 lilypond-ts--nav-data-update-stack
+                                   nil nil #'file-equal-p))
             (let ((offsets (with-silent-modifications
                              (lilypond-ts-test--modify-buffer-saving-offsets
                               205 "\\accent"

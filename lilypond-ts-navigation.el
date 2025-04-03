@@ -47,6 +47,9 @@
 (defvar lilypond-ts--watchers nil
   "Active file notification watchers belonging to lilypond-ts-mode.")
 
+(defvar lilypond-ts--nav-data-update-stack nil
+  "Alist storing nav data for files not currently open.")
+
 (defvar lilypond-ts--score-id-alist nil
   "Alist storing the list of score-ids with navigation overlays in each file.")
 
@@ -96,18 +99,20 @@ Values are plists with the same format as navigation overlays.")
 
 (defun lilypond-ts--refresh-moment-nav (table-alist)
   (cl-loop for (file . table) in (alist-get 'by-input-file table-alist)
-           do (with-current-buffer (find-file-noselect file)
-                (lilypond-ts--put-moment-overlays table)))
+           for buffer = (find-buffer-visiting file)
+           if buffer do (with-current-buffer buffer
+                          (lilypond-ts--put-moment-overlays table))
+           else do (push (cons file table) lilypond-ts--nav-data-update-stack))
   (cl-loop for (score-id . files) in (alist-get 'by-score table-alist)
            do (setf (alist-get score-id lilypond-ts--score-id-alist)
                     files)))
 
 (defun lilypond-ts--read-nav-data (fname)
-  ;;(with-demoted-errors "Error reading nav data: %S"
-  (let ((data-alist (with-temp-buffer
-                      (insert-file-contents fname)
-                      (read (current-buffer)))))
-    (lilypond-ts--refresh-moment-nav data-alist)))
+  (with-demoted-errors "Error reading nav data: %S"
+    (let ((data-alist (with-temp-buffer
+                        (insert-file-contents fname)
+                        (read (current-buffer)))))
+      (lilypond-ts--refresh-moment-nav data-alist))))
 
 (defun lilypond-ts--nav-watcher-callback (ev)
   (when-let* (((not (eq 'stopped (cadr ev))))
@@ -135,31 +140,42 @@ subdirectory in the same folder as the current buffer, or the same folder as
 optional arg FNAME. If there is not, read nav data from any .l files in that
 .nav folder and initialize a new watcher for that .nav folder, adding it to
 lilypond-ts--watchers. If the .nav subdirectory does not exist, watch the
-current directory for its creation and try again once it exists."
+current directory for its creation and try again once it exists.
+
+If a watcher already exists for FNAME, load all nav data for that file from
+`lilypond-ts--nav-data-update-stack' and remove those entries."
   (with-demoted-errors "Error initializing lilypond-ts-navigation watcher: %S"
-    (when-let* ((fname (or fname (buffer-file-name)))
-                (file-dir (file-name-directory fname))
-                ((file-exists-p file-dir))
-                (nav-dir (file-name-concat file-dir ".nav"))
-                ((not (assoc nav-dir lilypond-ts--watchers))))
-      (if (file-exists-p nav-dir)
-          (prog1
-              (push (cons nav-dir
-                          (file-notify-add-watch
-                           nav-dir '(change)
-                           #'lilypond-ts--nav-watcher-callback))
-                    lilypond-ts--watchers)
-            ;; Reading nav data might result in a call to init-nav-watcher for
-            ;; a different file in the same project, hence duplicate watchers
-            ;; So do this second. To do: make nav data read-in lazy.
-            (mapc #'lilypond-ts--read-nav-data
-                  (directory-files nav-dir t "^.*\\.l$")))
-        (unless (assoc file-dir lilypond-ts--watchers)
-          (push (cons file-dir
-                      (file-notify-add-watch
-                       file-dir '(change)
-                       #'lilypond-ts--retry-init-watcher-callback))
-                lilypond-ts--watchers))))))
+    (if-let* ((fname (or fname (buffer-file-name)))
+              (file-dir (file-name-directory fname))
+              ((file-exists-p file-dir))
+              (nav-dir (file-name-concat file-dir ".nav"))
+              ((not (assoc nav-dir lilypond-ts--watchers))))
+        (if (file-exists-p nav-dir)
+            (prog1
+                (push (cons nav-dir
+                            (file-notify-add-watch
+                             nav-dir '(change)
+                             #'lilypond-ts--nav-watcher-callback))
+                      lilypond-ts--watchers)
+              ;; Reading nav data might result in a call to init-nav-watcher for
+              ;; a different file in the same project, hence duplicate watchers
+              ;; So do this second. To do: make nav data read-in lazy.
+              (mapc #'lilypond-ts--read-nav-data
+                    (directory-files nav-dir t "^.*\\.l$")))
+          (unless (assoc file-dir lilypond-ts--watchers)
+            (push (cons file-dir
+                        (file-notify-add-watch
+                         file-dir '(change)
+                         #'lilypond-ts--retry-init-watcher-callback))
+                  lilypond-ts--watchers)))
+      (while-let ((nav-table (alist-get fname lilypond-ts--nav-data-update-stack
+                                        nil nil #'file-equal-p))
+                  (buf (find-buffer-visiting fname)))
+        (with-current-buffer buf
+          (lilypond-ts--put-moment-overlays nav-table))
+        (setf (alist-get fname lilypond-ts--nav-data-update-stack
+                         nil t #'file-equal-p)
+              nil)))))
 
 (defun lilypond-ts--maybe-remove-nav-watcher (&optional fname)
   "If there are no buffers visiting files in the same directory as the current
@@ -502,6 +518,12 @@ note or rest's duration."
   :group 'lilypond-ts-navigation)
 
 (defun lilypond-ts--rhythmic-position-line ()
+  "Generate header line expression with current position and goal moment.
+
+Current position is displayed on the left, goal moment on the right.
+
+A duration bar is displayed in the center indicating the relationship between
+the goal moment and the position and duration of the current note or rest."
   (let* ((curr-bar (get-char-property (point) :bar-number))
          (curr-beat (get-char-property (point) :bar-position))
          (curr-end (get-char-property (point) :end-moment))

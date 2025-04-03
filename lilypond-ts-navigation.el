@@ -192,7 +192,8 @@ use that instead of the current buffer filename."
   (save-current-buffer
     (cl-loop
      with score-id = (get-char-property (point) :score-id)
-     with m = (or (cdr (assq score-id lilypond-ts--goal-moments))
+     with m = (or (plist-get (cdr (assq score-id lilypond-ts--goal-moments))
+                             :moment)
                   (get-char-property (point) :moment)
                   (get-char-property
                    (previous-single-char-property-change (point) :moment)
@@ -271,7 +272,10 @@ starting moment whenever an expression lacks music at the exact same moment."
   (interactive "P")
   (when-let ((score-id (get-char-property (point) :score-id)))
     (setf (alist-get score-id lilypond-ts--goal-moments nil t)
-          (unless unset (get-char-property (point) :moment)))))
+          (unless unset
+            `( :moment ,(get-char-property (point) :moment)
+               :bar-number ,(get-char-property (point) :bar-number)
+               :bar-position ,(get-char-property (point) :bar-position))))))
 
 (defun lilypond-ts-forward-moment (&optional n)
   "Move forward to the next musical moment after point in the current music
@@ -318,6 +322,89 @@ forwards."
   (interactive "p")
   (lilypond-ts-forward-measure (- n)))
 
+;;; Mode-line/header display
+
+(defgroup lilypond-ts-navigation nil
+  "Settings for `lilypond-ts-navigation-mode'."
+  :group 'lilypond-ts)
+
+(defun lilypond-ts--rhythmic-position-line ()
+  (let* ((curr-bar (get-char-property (point) :bar-number))
+         (curr-beat (get-char-property (point) :bar-position))
+         (curr-end (get-char-property (point) :end-moment))
+         (curr-moment (get-char-property (point) :moment))
+         (curr-duration (and curr-moment curr-end
+                             (- curr-end curr-moment)))
+         (goal-plist (cdr (assq (get-char-property (point) :score-id)
+                                lilypond-ts--goal-moments)))
+         (goal-bar (plist-get goal-plist :bar-number))
+         (goal-beat (plist-get goal-plist :bar-position))
+         (goal-moment (plist-get goal-plist :moment))
+         (goal-left-duration (and goal-moment curr-moment
+                                  (- goal-moment curr-moment)))
+         (goal-right-duration (and goal-moment curr-end
+                                   (- curr-end goal-moment)))
+         (goal-left-bar-diff (and goal-bar curr-bar
+                                  (- goal-bar curr-bar)))
+         (goal-left-beat-diff (and goal-beat curr-beat
+                                   (- goal-beat curr-beat)))
+         (curr-string (and curr-bar curr-beat
+                           (propertize
+                            (format "  Position (%d : %.5s)    "
+                                    curr-bar curr-beat)
+                            'help-echo (format
+                                        "Current position: bar %d, remainder %.5s"
+                                        curr-bar curr-beat))))
+         (goal-string (and goal-bar goal-beat
+                           (propertize
+                            (format "    Goal (%d : %.5s)  " goal-bar goal-beat)
+                            ;;'face 'geiser-font-lock-autodoc-current-arg
+                            'help-echo
+                            (format
+                             "Navigation goal moment: bar %d, remainder %.5s"
+                             goal-bar goal-beat))))
+         (left-data-string (and goal-left-bar-diff goal-left-beat-diff
+                                goal-left-duration (< 0 goal-left-duration)
+                                (propertize
+                                 (format "-(%d : %.5s) -%.5s" goal-left-bar-diff
+                                         goal-left-beat-diff goal-left-duration)
+                                 'face 'diff-added 'help-echo
+                                 (format
+                                  "From current position to goal: %d bars, remainder %.5s, total %.5s"
+                                  goal-left-bar-diff goal-left-beat-diff
+                                  goal-left-duration))))
+         (right-data-string (and goal-right-duration (< 0 goal-right-duration)
+                                 (propertize
+                                  (format "+%.5s" goal-right-duration)
+                                  'face 'diff-removed 'help-echo
+                                  (format
+                                   "From goal to end of current note or rest: total %.5s"
+                                   goal-right-duration))))
+         (right-align-length (- (window-width) (length goal-string)))
+         (pad-width (- right-align-length 5 (length curr-string)
+                       (length left-data-string) (length right-data-string)))
+         (left-pad (and left-data-string
+                        (min pad-width (round (* pad-width
+                                                 (abs goal-left-duration))
+                                              curr-duration))))
+         (right-pad (and right-data-string (- pad-width (or left-pad 0))))
+         (left-bar (and left-pad (propertize (string-pad " <" left-pad ?\=)
+                                             'face 'diff-added)))
+         (right-bar (and right-pad (propertize (string-pad "> " right-pad ?\= t)
+                                               'face 'diff-removed))))
+    `(( ,right-align-length ,(or curr-string "")
+        . ,(when (and left-data-string right-data-string
+                      curr-string goal-string )
+             `(,(when left-data-string "[") ,left-data-string
+               ,(unless right-data-string "]") ,left-bar
+               "|G|"
+               ,right-bar ,(unless left-data-string "[")
+               ,right-data-string ,(when right-data-string "]"))))
+      ,goal-string)))
+
+(defvar lilypond-ts--nav-mode-line-format
+  '((:eval (lilypond-ts--rhythmic-position-line))))
+
 (defvar-keymap lilypond-ts-navigation-mode-map
   "<remap> <forward-word>" #'lilypond-ts-forward-moment
   "<remap> <backward-word>" #'lilypond-ts-backward-moment
@@ -334,9 +421,12 @@ When enabled, new or refreshed musical metadata will automatically be loaded on
 running `lilypond-ts-compile'."
   :init-value nil
   :lighter "/N"
+  :group 'lilypond-ts-navigation
   (if lilypond-ts-navigation-mode
       (lilypond-ts--init-nav-watcher)
-    (lilypond-ts--maybe-remove-nav-watcher)))
+    (lilypond-ts--maybe-remove-nav-watcher))
+  (buffer-local-set-state
+   header-line-format lilypond-ts--nav-mode-line-format))
 
 (provide 'lilypond-ts-navigation)
 ;;; lilypond-ts-navigation.el ends here

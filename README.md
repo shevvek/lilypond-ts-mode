@@ -1,5 +1,5 @@
 # LilyPond Tree-sitter Mode
-This package provides `lilypond-ts-mode`, an Emacs major mode for [GNU LilyPond](https://lilypond.org/) that supports rhythmic position-based code navigation.
+This package provides `lilypond-ts-mode`, an Emacs major mode for [GNU LilyPond](https://lilypond.org/) that supports "vertical" rhythm-aware navigation through music code.
 
 `lilypond-ts-mode` uses [the Tree-sitter grammar created by Nate Whetsell](https://github.com/nwhetsell/tree-sitter-lilypond/) and the built-in `treesit` feature of Emacs 30+. `lilypond-ts-mode` runs LilyPond itself as an interactive Scheme environment via [Geiser](https://www.nongnu.org/geiser/), enabling live access to LilyPond's full Scheme API from Emacs.
 
@@ -21,7 +21,7 @@ Contributions and bug reports are very welcome.
 * Keyword lists for font lock and auto-completion populated at runtime by LilyPond itself, not hard-coded.
 
 ## Prerequisites
-* Emacs 30+ with `treesit` enabled
+* Emacs 30.1+ with `treesit` enabled
 * Git and GCC accessible to Emacs $PATH
 
   On Windows, the easiest way to provide Git and GCC is to install MSYS2 and either install Emacs using MSYS2 or run an existing Emacs install from an MSYS2 shell. Once the treesitter grammar is installed, GCC path availability is no longer needed.
@@ -47,10 +47,12 @@ Contributions and bug reports are very welcome.
 | `C-c C-S-c` | `lilypond-ts-compile-parts` |
 | `C-c C-r` | `lilypond-ts-eval-region` |
 | `C-c C-b` | `lilypond-ts-eval-buffer` |
-| forward-sentence | `lilypond-ts-forward-moment` |
-| backward-sentence | `lilypond-ts-backward-moment` |
-| forward-paragraph | `lilypond-ts-forward-same-moment` |
-| backward-paragraph | `lilypond-ts-backward-same-moment` |
+| forward-word | `lilypond-ts-forward-moment` |
+| backward-word | `lilypond-ts-backward-moment` |
+| forward-sentence | `lilypond-ts-forward-measure` |
+| backward-sentence | `lilypond-ts-backward-measure` |
+| forward-paragraph | `lilypond-ts-up-moment` |
+| backward-paragraph | `lilypond-ts-down-moment` |
 | `C-c C-n` | `lilypond-ts-set-goal-moment` |
 | `C-u C-c C-n` | unset goal moment |
 
@@ -59,7 +61,7 @@ All that you need to do to enable musical navigation is compile by running `lily
 
 Use forward/backward paragraph (by default, `M-}`/`M-{`) to move to the next music expression at the same point in musical time (or the closest earlier point, if say ViolinII doesn't have a note at the same time as ViolinI). To cycle through all the parts and end up back at the same place, use `C-c C-n` to set the *goal moment* to the musical moment at *point*. Use `C-u C-c C-n` to unset the goal moment.
 
-Use forward/backward sentence (`M-e`/`M-a`) to move to the next or previous rhythmic moment in the current music expression.
+Use forward/backward word (`M-f`/`M-b`) to move to the next or previous rhythmic event, or forward/backward sentence (`M-e`/`M-a`) for the next/previous measure in the current music expression.
 
 Musical navigation should work even for projects with complex file structures, custom contexts, or polyrhythmic scores.
 

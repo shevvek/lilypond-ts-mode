@@ -64,10 +64,6 @@
                     err)
            nil)))
 
-(defgroup lilypond-ts-font-lock nil
-  "Font lock settings for `lilypond-ts-mode'."
-  :group 'lilypond-ts)
-
 (defcustom lilypond-ts--scheme-defun-regex
   (rx "define" (or (not alpha) eol))
   "Font lock regex for Scheme defun keywords in `lilypond-ts-mode'."
@@ -172,24 +168,6 @@ exactly (not counting the suffix `!')."
      :feature scheme-numbers
      ((scheme_number) @font-lock-number-face)))
 
-(defcustom lilypond-ts--other-keywords
-  '("absolute" "acciaccatura" "after" "afterGrace" "alterBroken"
-    "appendToTag" "applyContext" "applyMusic" "applyOutput" "appoggiatura"
-    "autoChange" "cadenzaOff" "cadenzaOn" "compoundMeter"
-    "contextPropertyCheck" "cueDuring" "cueDuringWithClef" "fixed" "grace"
-    "hide" "keepWithTag" "language" "languageRestore"
-    "languageSaveAndChange" "markupMap" "omit" "once" "ottava"
-    "overrideProperty" "parallelMusic" "partCombine" "partial"
-    "popContextProperty" "propertyOverride" "propertyRevert" "propertySet"
-    "propertyTweak" "propertyUnset" "pushContextProperty" "pushToTag"
-    "quoteDuring" "relative" "removeWithTag" "scaleDurations" "settingsFrom"
-    "single" "slashedGrace" "stopStaff" "tag" "tagGroup" "temporary" "time"
-    "times" "transpose" "transposedCueDuring" "transposition" "tuplet"
-    "tweak" "undo" "unfoldRepeats" "unfolded" "void" "volta")
-  "Extra words to font lock as \\-escaped keywords in LilyPond code."
-  :group 'lilypond-ts-font-lock
-  :type '(repeat string))
-
 (defun lilypond-ts--font-lock-rules ()
   `( :default-language lilypond
 
@@ -212,25 +190,20 @@ exactly (not counting the suffix `!')."
 
      :feature object
      (((symbol) @font-lock-type-face
-       (:match ,(eval `(rx bol (or ,@(lilypond-ts-list contexts)
-                                   ,@(lilypond-ts-list grobs))
-                           eol))
-               @font-lock-type-face))
+       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts 'grobs)
+              @font-lock-type-face))
       ((escaped_word) @font-lock-type-face
-       (:match ,(eval `(rx bol "\\" (or ,@(lilypond-ts-list contexts))
-                           eol))
-               @font-lock-type-face)))
+       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts)
+              @font-lock-type-face)))
 
      :feature object
      :override prepend
      (((symbol) @bold
-       (:match ,(eval `(rx bol (or ,@(lilypond-ts-list contexts))
-                           eol))
-               @bold))
+       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts)
+              @bold))
       ((escaped_word) @bold
-       (:match ,(eval `(rx bol "\\" (or ,@(lilypond-ts-list contexts))
-                           eol))
-               @bold)))
+       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts)
+              @bold)))
 
      :feature number
      (([(fraction)
@@ -253,25 +226,21 @@ exactly (not counting the suffix `!')."
      :feature markup
      :override t
      (((escaped_word) @font-lock-function-call-face
-       (:match ,(eval `(rx bol "\\" (or "markup" "markuplist"
-                                        ,@(lilypond-ts-list markup-functions))
-                           eol))
-               @font-lock-function-call-face)))
+       (:pred ,(lilypond-ts--keyword-node-predicate 'markup-functions)
+              @font-lock-function-call-face)))
 
      :feature markup
-     :override prepend
-     (((escaped_word) @bold
-       (:match "^\\\\markup\\(list\\)?$" @bold)))
+     :override t
+     (((escaped_word) @font-lock-function-call-face
+       (:match "^\\\\markup\\(list\\)?$" @font-lock-function-call-face)))
 
      :feature expression
      :override t
      (((dynamic) @font-lock-builtin-face)
       (((escaped_word) @font-lock-builtin-face
-        (:match  ,(eval `(rx bol (? "\\") ;; optional in order to match \^ and \-
-                             (or ,@(lilypond-ts-list post-events)
-                                 ,@(lilypond-ts-list event-functions))
-                             eol))
-                 @font-lock-builtin-face)))
+        (:pred ,(lilypond-ts--keyword-node-predicate 'post-events
+                                                     'event-functions)
+               @font-lock-builtin-face)))
       ((punctuation ["-" "_" "^"]) @font-lock-builtin-face
        :anchor
        (punctuation ["!" "." "-" "^" "_" ">" "+"]) @font-lock-builtin-face)
@@ -292,11 +261,9 @@ exactly (not counting the suffix `!')."
      :feature keyword
      :override t
      (((escaped_word) @font-lock-keyword-face
-       (:match ,(eval `(rx bol "\\" (or "include" "maininput" "version"
-                                        ,@lilypond-ts--lexer-keywords
-                                        ,@lilypond-ts--other-keywords)
-                           eol))
-               @font-lock-keyword-face))
+       (:pred ,(lilypond-ts--keyword-node-predicate 'lexer-keywords
+                                                    'other-keywords)
+              @font-lock-keyword-face))
       (((escaped_word) @font-lock-keyword-face
         (:match "\\\\override" @font-lock-keyword-face))
        :anchor [(property_expression)

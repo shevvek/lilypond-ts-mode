@@ -180,7 +180,8 @@
     ;; (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
-    (add-hook 'lilypond-ts-post-eval-hook #'lilypond-ts--require-list-refresh)
+    (add-hook 'lilypond-ts-post-eval-hook
+              #'lilypond-ts--require-keyword-updates)
     (treesit-major-mode-setup)
     (setq-local lisp-indent-function #'scheme-indent-function)
     ;; to do: set comment-use-syntax

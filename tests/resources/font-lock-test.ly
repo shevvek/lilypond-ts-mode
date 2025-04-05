@@ -73,7 +73,7 @@ music = \relative {
 %%      ^ nil
 %%       ^ font-lock-string-face
 %%             ^ nil
-%%                      ^ (bold font-lock-function-call-face)
+%%                      ^ (font-lock-function-call-face)
 %%                             ^ font-lock-function-call-face
 %%                                    ^ nil
   d8(\=2 c[) b a?] gs!2\trill |

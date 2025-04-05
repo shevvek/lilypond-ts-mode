@@ -110,7 +110,7 @@ markup-notehead =
                                        (grob-interpret-markup grob #{
 %% <- nil
                                          \markup \rotate #90 \m
-%%                                       ^ (bold font-lock-function-call-face)
+%%                                       ^ (font-lock-function-call-face)
 %%                                               ^ font-lock-function-call-face
 %%                                                      ^ nil
 %%                                                        ^ font-lock-number-face

@@ -75,7 +75,7 @@ all properties in KEYS."
 (defun lilypond-ts--intern-lambda (l)
   "Turn lambda L into a named function using `cl-gentemp' and return the name."
   (let ((name (cl-gentemp)))
-    (fset (cl-gentemp) l)
+    (fset name l)
     name))
 
 (defun lilypond-ts--treesit-capture-neighborhood (query before after

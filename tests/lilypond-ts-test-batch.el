@@ -27,7 +27,7 @@
 
 (defun lilypond-ts-test--run-batch-tests ()
   (interactive)
-  (pop-to-buffer "*LilyPond TS Tests*")
+  (display-buffer "*LilyPond TS Tests*" '((post-command-select-window . nil)))
   (goto-char (point-max))
   (ert-simple-view-mode)
   (let ((test-process
@@ -44,9 +44,9 @@
                         "-l" "lilypond-ts-tests"
                         "-l" "lilypond-ts-nav-tests"
                         "-f" "ert-run-tests-batch-and-exit")))
-    (sit-for 30)
-    (when (process-live-p test-process)
-      (kill-process test-process))))
+    (run-with-timer 30 nil (lambda ()
+                             (when (process-live-p test-process)
+                               (kill-process test-process))))))
 
 (provide 'lilypond-ts-test-batch)
 ;;; lilypond-ts-test-batch.el ends here

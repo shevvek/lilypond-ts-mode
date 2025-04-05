@@ -3,15 +3,17 @@ This package provides `lilypond-ts-mode`, an Emacs major mode for [GNU LilyPond]
 
 `lilypond-ts-mode` uses [the Tree-sitter grammar created by Nate Whetsell](https://github.com/nwhetsell/tree-sitter-lilypond/) and the built-in `treesit` feature of Emacs 30+. `lilypond-ts-mode` runs LilyPond itself as an interactive Scheme environment via [Geiser](https://www.nongnu.org/geiser/), enabling live access to LilyPond's full Scheme API from Emacs.
 
+`lilypond-ts-mode` is intended as a modern replacement for `lilypond-mode`.
+
 Currently this package is in alpha.
 
 Contributions and bug reports are very welcome.
 
 ## Currently supported features
-* Navigate "vertically" through your score, cycling through the same beat in the code for each part's music.
+* Navigate "vertically" through your score, cycling through the same beat in the code for each part's music, with live UI displaying the current bar number.
 * Live access to LilyPond's full Scheme API from Emacs, by running LilyPond itself as the Scheme REPL via Geiser. This is usable both for `lilypond-ts-mode` files and for `scheme-mode` files.
 * Automatic detection of LilyPond installations and selection of the closest compatible version when compiling.
-* Interactively evaluate LilyPond code within the active REPL via `lilypond-ts-eval-region`. (Note: this is currently implemented in a way that does minimal checking for valid expression boundaries or error conditions.)
+* Interactively evaluate LilyPond code within the active REPL via `lilypond-ts-eval-region`, making any definitions available for autocompletion, autodoc, and font lock highlighting. (Note: this is currently implemented in a way that does minimal checking for valid expression boundaries or error conditions.)
 * Parser based indentation for LilyPond code, with `scheme-mode` indentation of embedded Scheme. Arbitrarily nested embeddings are supported.
 * Smart type-based auto-completion for property expressions (e.g. `Staff.TextScript.whiteout`).
 * Auto-completion for `\`-escaped words (e.g. `\relative`).
@@ -21,7 +23,7 @@ Contributions and bug reports are very welcome.
 * Keyword lists for font lock and auto-completion populated at runtime by LilyPond itself, not hard-coded.
 
 ## Prerequisites
-* Emacs 30.1+ with `treesit` enabled
+* Emacs 30.1+ with `treesit` enabled. (Due to continuing active development of `treesit`, it is likely that `lilypond-ts-mode` will require the latest Emacs release, at least until the next Emacs major version release.)
 * Git and GCC accessible to Emacs $PATH
 
   On Windows, the easiest way to provide Git and GCC is to install MSYS2 and either install Emacs using MSYS2 or run an existing Emacs install from an MSYS2 shell. Once the treesitter grammar is installed, GCC path availability is no longer needed.
@@ -38,6 +40,18 @@ Contributions and bug reports are very welcome.
    (add-to-list 'load-path <local repo location>)
    (require 'lilypond-ts-mode)
    ```
+
+## Customization
+If you have LilyPond installed in a non-standard directory, add it to `lilypond-ts-search-path`, then refresh LilyPond installs. By default, `lilypond-ts-mode` won't search for new LilyPond installations on startup unless the cached list of installs is empty.
+
+If you customize nothing else, you will probably want to add your LilyPond include folders to `lilypond-ts-default-includes` so that they can be found when you compile. To include your custom commands and functions in autocompletion, autodoc, and font lock highlighting, also add your top-level LilyPond include files themselves to `lilypond-ts--lily-argument-sets` under `repl` and `:includes`.
+
+`lilypond-ts-mode` does not currently directly support MIDI or PDF preview, but it uses Emacs compilation mode. To set up automatic preview, add a callback for your preferred previewer to `compilation-finish-functions`.
+
+[Frescobaldi document variables](https://www.frescobaldi.org/uguide#help_document_variables) are partially compatible with Emacs and `lilypond-ts-mode`. [Emacs syntax for file-local variables](https://www.gnu.org/software/emacs/manual/html_node/emacs/Specifying-File-Variables.html) overlaps with that used by Frescobaldi, but is stricter in some ways. To be used by Emacs, the file variables comment needs to be the first line in the file, and must include `-*-` at the beginning and end. If present, `lilypond-ts-mode` will use the `master` variable to redirect compilation, similar to Frescobaldi. The syntax Frescobaldi uses for `output` unfortunately is not valid when interpreted in Emacs Lisp, so keep this one somewhere that Emacs won't try to read as a file variable. In the future it would be nice to support `output` in order to allow for preview-on-compile and full compatibility with Frescobaldi.
+
+As with all Tree-sitter modes, font lock features can be toggled selectively. The current font lock rules were developed using `gruvbox`. Feedback is welcome on how highlighting looks under other themes.
+
 ## Keybinds
 `lilypond-ts-mode` defines the following commands:
 
@@ -66,26 +80,6 @@ Use forward/backward word (`M-f`/`M-b`) to move to the next or previous rhythmic
 Musical navigation should work even for projects with complex file structures, custom contexts, or polyrhythmic scores.
 
 If your project uses its own build process such as `make`, you can enable musical navigation by including `scm/navigation.ily` from `lilypond-ts-mode`. Some extra work may be required for use cases that define `default-toplevel-book-handler`, such as `lilypond-book`.
-
-## Planned features
-* Re-load font-lock rules whenever keyword lists are refreshed.
-* Auto-completion support for symbols within Scheme code (e.g. grob interfaces, event classes).
-* `\paper` block highlighting and auto-completion.
-* Improved granular font-lock feature coverage of LilyPond syntax elements.
-
-## Relation to lilypond-mode
-`lilypond-ts-mode` is intended as a modern replacement for `lilypond-mode`. See comments in `lilypond-ts-run.el` for discussion.
-
-## Customization
-If you have LilyPond installed in a non-standard directory, add it to `lilypond-ts-search-path`, then refresh LilyPond installs. By default, `lilypond-ts-mode` won't search for new LilyPond installations on startup unless the cached list of installs is empty.
-
-`lilypond-ts-mode` does not currently directly support MIDI or PDF preview, but it uses Emacs compilation mode. To set up automatic preview, add a callback for your preferred previewer to `compilation-finish-functions`.
-
-[Frescobaldi document variables](https://www.frescobaldi.org/uguide#help_document_variables) are partially compatible with Emacs and `lilypond-ts-mode`. [Emacs syntax for file-local variables](https://www.gnu.org/software/emacs/manual/html_node/emacs/Specifying-File-Variables.html) overlaps with that used by Frescobaldi, but is stricter in some ways. To be used by Emacs, the file variables comment needs to be the first line in the file, and must include `-*-` at the beginning and end. If present, `lilypond-ts-mode` will use the `master` variable to redirect compilation, similar to Frescobaldi. The syntax Frescobaldi uses for `output` unfortunately is not valid when interpreted in Emacs Lisp, so keep this one somewhere that Emacs won't try to read as a file variable. In the future it would be nice to support `output` in order to allow for preview-on-compile and full compatibility with Frescobaldi.
-
-As with all Tree-sitter modes, font lock features can be toggled selectively.
-
-The current font lock rules were developed using `gruvbox`. Feedback is welcome on how highlighting looks under other themes.
 
 ## License
 `lilypond-ts-mode` is licensed under GPL-3+.

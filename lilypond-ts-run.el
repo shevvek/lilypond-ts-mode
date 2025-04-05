@@ -200,14 +200,20 @@ compatibility with Frescobaldi document variables."
     (current-buffer)))
 
 (defcustom lilypond-ts-default-lily-args nil
-  "List of arguments to pass to LilyPond when compiling."
+  "List of arguments to pass to LilyPond when compiling.
+
+This is a good candidate for `.dir-locals.el.'"
   :group 'lilypond-ts-run
   :type '(choice string (cons string string)
                  (repeat (choice string (cons string string)))))
 
 (defcustom lilypond-ts-default-includes nil
-  "List of LilyPond include arguments. Directories will be passed using `-I'.
-Files will be passed using `-dinclude-settings='."
+  "List of LilyPond include arguments.
+
+Directories will be passed using `-I'.  Files will be passed using
+`-dinclude-settings='.
+
+This is a good candidate for `.dir-locals.el.'"
   :group 'lilypond-ts-run
   :type '(choice file directory (repeat (choice file directory))))
 

@@ -304,11 +304,8 @@ sets named in :inherits."
         (includes (mapcan (lambda (f)
                             (cond
                              ((file-directory-p f)
-                              (list "-I" (shell-quote-argument f)))
-                             ((file-exists-p f)
-                              (list (format "-dinclude-settings=%s"
-                                            (shell-quote-argument f))))
-                             (t (warn "Invalid include argument %s" f))))
+                              (list "-I" f))
+                             (t (list (format "-dinclude-settings=%s" f)))))
                           (flatten-list (plist-get cmd-plist :includes)))))
     (nconc args includes)))
 

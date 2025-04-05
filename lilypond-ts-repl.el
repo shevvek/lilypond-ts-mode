@@ -136,13 +136,13 @@ like `lilypond-ts-eval-buffer' and `lilypond-ts-eval-region'."
   "Async eval a LilyPond buffer within the current Geiser LilyPond REPL."
   (interactive)
   (let* ((buf (or buffer (current-buffer)))
-         (fname (expand-file-name (buffer-file-name buf))))
+         (fname (buffer-file-name buf)))
     (with-current-buffer buf
-      (if (file-exists-p fname)
+      (if (and fname (file-exists-p fname))
           (geiser-eval--send
            `(:eval (ly:parser-parse-string
                     (ly:parser-clone)
-                    ,(format "\\include \"%s\"" fname)))
+                    ,(format "\\include \"%s\"" (expand-file-name fname))))
            (lambda (s)
              (run-hooks 'lilypond-ts-post-eval-hook)
              (message "%s" s)))

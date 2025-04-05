@@ -220,7 +220,8 @@ Files will be passed using `-dinclude-settings='."
           :env "GUILE_AUTO_COMPILE=1"
           :inherit defaults)
     (defaults :args lilypond-ts-default-lily-args
-              :includes lilypond-ts-default-includes))
+              :includes (lilypond-ts-default-includes
+                         (geiser-repl-project-root))))
   "Alist of named partial argument sets for invoking the LilyPond binary.
 
 Keys for this alist may be used as the argument to `lilypond-ts--compile-cmd'.

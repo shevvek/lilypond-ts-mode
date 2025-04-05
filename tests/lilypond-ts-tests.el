@@ -198,5 +198,42 @@ autodoc matches the literal string CORRECT."
 (ert-font-lock-deftest-file lilypond-ts-test--scheme-font-lock
     lilypond-ts-mode "scheme-font-lock.ly")
 
+;;; Eval
+
+(defconst lilypond-ts-test--eval-refresh-example
+  "\
+%1$s = -\"foo\"
+
+{
+  c'1\\%1$s
+}")
+
+(defvar lilypond-ts-test--var-counter ?a)
+
+(defun lilypond-ts-test--eval-refresh (whole-buffer)
+  (let ((varname (format "foo%c" lilypond-ts-test--var-counter)))
+    (cl-incf lilypond-ts-test--var-counter)
+    (with-temp-buffer
+      (insert (format lilypond-ts-test--eval-refresh-example varname))
+      (lilypond-ts-mode)
+      (should-not (lilypond-ts--match-keyword varname 'post-events))
+      (font-lock-ensure)
+      (should (eq 'font-lock-variable-use-face
+                  (get-char-property (- (point-max) 5) 'face)))
+      (if whole-buffer
+          (lilypond-ts-eval-buffer)
+        (goto-char (point-min))
+        (lilypond-ts-eval-region (point) (pos-eol)))
+      (should (lilypond-ts--match-keyword varname 'post-events))
+      (font-lock-ensure)
+      (should (eq 'font-lock-builtin-face
+                  (get-char-property (- (point-max) 5) 'face))))))
+
+(ert-deftest lilypond-ts-test--eval-region-refresh ()
+  (lilypond-ts-test--eval-refresh nil))
+
+(ert-deftest lilypond-ts-test--eval-buffer-refresh ()
+  (lilypond-ts-test--eval-refresh t))
+
 (provide 'lilypond-ts-tests)
 ;;; lilypond-ts-tests.el ends here

@@ -111,6 +111,7 @@ like `lilypond-ts-eval-buffer' and `lilypond-ts-eval-region'."
 (defun lilypond-ts-eval-region (start end)
   "Async eval the region within the current Geiser LilyPond REPL."
   (interactive "r")
+  (lilypond-ts--ensure-repl)
   (let* ((start-node (treesit-node-at start))
          (end-node (treesit-node-at end))
          (start-lang-block (lilypond-ts--lang-block-parent start-node))
@@ -138,6 +139,7 @@ like `lilypond-ts-eval-buffer' and `lilypond-ts-eval-region'."
   (let* ((buf (or buffer (current-buffer)))
          (fname (buffer-file-name buf)))
     (with-current-buffer buf
+      (lilypond-ts--ensure-repl)
       (if (and fname (file-exists-p fname))
           (geiser-eval--send
            `(:eval (ly:parser-parse-string

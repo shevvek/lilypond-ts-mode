@@ -174,7 +174,7 @@ local."
       ;; effort unless there's an empirical performance hit
       (make-local-variable 'lilypond-ts--keywords)
       (setq lilypond-ts--keywords (default-value 'lilypond-ts--keywords)))
-    (lilypond-ts--ensure-repl)
+    (add-hook 'hack-local-variables-hook #'lilypond-ts--ensure-repl nil t)
 
     (setq-local comment-start "%")
     (setq-local comment-start-skip "[%;]+{? *")

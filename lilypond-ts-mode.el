@@ -107,11 +107,8 @@
 
      ;; Use scheme-mode indentation for embedded Scheme blocks
      ;; Lilypond embedded within Scheme won't match this rule
-     ((lambda (node parent &rest _)
-        (treesit-node-match-p (if (treesit-node-check node 'named)
-                                  node
-                                parent)
-                              "scheme"))
+     ((and (node-is "scheme")
+           (not (node-is "embedded_scheme_prefix")))
       ;; calculate-lisp-indent already takes initial indent into account
       column-0
       (lambda (node &rest _)

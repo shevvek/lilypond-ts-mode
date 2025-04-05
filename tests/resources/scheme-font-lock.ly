@@ -121,5 +121,5 @@ markup-notehead =
 %% <- nil
 
 char = ##\x
-;; <- nil
+%% <- nil
 %%     ^ font-lock-constant-face

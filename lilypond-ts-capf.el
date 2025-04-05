@@ -27,8 +27,6 @@
 (require 'lilypond-ts-keywords)
 (require 'lilypond-ts-autodoc)
 
-;;; The values of these variables are LilyPond specific, but the API is generic:
-
 (defvar lilypond-ts--default-completions-function
   (lambda (key)
     `(lilypond-ts-list ,key)))
@@ -36,42 +34,28 @@
   (lambda (str)
     (string-trim-left str "\\\\")))
 (defvar lilypond-ts--capf-properties
-  `(:company-docsig
-    ,(and geiser-autodoc-use-docsig #'lilypond-ts--capf-autodoc)
-    :company-doc-buffer #'geiser-capf--company-doc-buffer
-    :company-location #'geiser-capf--company-location))
-
-;;; This code is entirely generic:
+  `( :company-kind lilypond-ts--company-kind
+     :company-docsig
+     ,(and geiser-autodoc-use-docsig #'lilypond-ts--capf-autodoc)
+     :company-doc-buffer geiser-capf--company-doc-buffer
+     :company-location geiser-capf--company-location))
 
 (defvar lilypond-ts--treesit-completion-rules nil)
 (defvar lilypond-ts--treesit-capf-rules nil)
 
-(defun lilypond-ts--treesit-completion-rule (rule)
-  (let* ((key (car rule))
-         (plist (cdr rule))
-         (match-function (plist-get plist :match-function))
-         (get-list (lambda (&rest _)
-                     (eval (or (plist-get plist :static-list)
-                               (funcall lilypond-ts--default-completions-function
-                                        key)))))
-         (completions-function (plist-get plist :completions-function))
-         (kind (plist-get plist :company-kind)))
-    (list key
-          (or match-function
-              (lambda (str)
-                (seq-contains-p (funcall get-list)
-                                (funcall lilypond-ts--capf-predicate-filter
-                                         str))))
-          (lambda (&rest friends)
-            (completion-table-dynamic
-             (lambda (&optional pfx)
-               (let ((completions (apply (or completions-function get-list)
-                                         pfx friends)))
-                 ;; (when kind
-                 ;;   (mapc (lambda (word)
-                 ;;           (put-text-property 0 1 :company-kind kind word))
-                 ;;         completions))
-                 completions)))))))
+(defun lilypond-ts--company-kind (str)
+  (get-char-property 0 :company-kind str))
+
+(defun lilypond-ts--keyword-completion-table (key)
+  (lambda (&rest friends)
+    (completion-table-dynamic
+     (lambda (&optional pfx)
+       (let* ((keyword-category (lilypond-ts--get-keywords key))
+              (completions-function (plist-get keyword-category
+                                               :completions-function)))
+         (if completions-function
+             (apply completions-function pfx friends)
+           (cadr keyword-category)))))))
 
 (defun lilypond-ts--treesit-capf-predicate (pred)
   (cond
@@ -92,12 +76,11 @@
             (completion-table-dynamic
              (lambda (&optional p)
                (ensure-list key))))))
-   (t (alist-get key lilypond-ts--treesit-completion-rules
-                 (list #'always #'ignore)))))
+   (t (list (lambda (word)
+              (lilypond-ts--match-keyword word key))
+            (lilypond-ts--keyword-completion-table key)))))
 
-(defun lilypond-ts--treesit-configure-capf (completion-categories capf-rules)
-  (setq lilypond-ts--treesit-completion-rules
-        (mapcar #'lilypond-ts--treesit-completion-rule completion-categories))
+(defun lilypond-ts--treesit-configure-capf (capf-rules)
   (setq lilypond-ts--treesit-capf-rules
         (mapcar
          (lambda (rule)
@@ -215,63 +198,6 @@ should generally not directly write mask lambdas."
 
 ;;; LilyPond specific configuration begins here:
 
-(defun lilypond-ts--grob-property-completions (&rest friends)
-  "List all grob properties consistent with grob path elements FRIENDS.
-
-If there are any path elements after the grob type, only list grob properties
-that allow nesting."
-  (let ((tail (seq-drop-while (lambda (friend)
-                                (not (seq-contains-p (lilypond-ts-list grobs)
-                                                     friend)))
-                              friends)))
-    (geiser-eval--send/result
-     `(:eval (ly:grob-property-completions ,(car tail) ,(cadr tail))))))
-
-;; Reference https://github.com/jdtsmith/kind-icon/blob/main/kind-icon.el
-(defvar lilypond-ts--completion-categories
-  `((clefs :company-kind unit)
-    (repeats :company-kind command :static-list lilypond-ts--repeat-types)
-    (pitch-languages :company-kind enum)
-    (translators :company-kind constructor)
-    (contexts :company-kind struct)
-    (grobs :company-kind class)
-    (grob-properties :company-kind property
-                     :completions-function lilypond-ts--grob-property-completions)
-    (translation-properties :company-kind param)
-    (context-commands :static-list lilypond-ts--context-property-functions)
-    (grob-commands :static-list lilypond-ts--grob-property-functions)
-    (lexer-keywords :company-kind keyword
-                    :static-list lilypond-ts--lexer-keywords)
-    (markup-functions :company-kind method)
-    (markups :company-kind string)
-    (music-functions :company-kind function)
-    (musics :company-kind variable)
-    (context-mods :company-kind interface)
-    (output-defs :company-kind module)
-    (context-defs :company-kind struct)
-    (scores :company-kind text)
-    (books :company-kind reference)
-    (music-types :company-kind event)
-    (music-properties :company-kind field)
-    (scheme-identifiers :company-kind macro
-                        :match-function always)
-    (scheme-modules :company-kind module)
-    (geiser-scheme :company-kind macro
-                   :match-function always
-                   :completions-function
-                   ,(lambda (p &rest _)
-                      (geiser-completion--symbol-list p)))
-    (geiser-module :company-kind module
-                   :match-function always
-                   :completions-function
-                   ,(lambda (p &rest _)
-                      (geiser-completion--module-list p)))
-    (filename :company-kind file
-              :match-function always
-              :completions-function
-              ,(lambda (p &rest _)
-                 (file-name-all-completions p default-directory)))))
-
 (defvar lilypond-ts--capf-rules
   `(("escaped_word"
      ((lexer-keywords)
@@ -375,8 +301,7 @@ that allow nesting."
   :lighter "/C"
   (if lilypond-ts-capf-mode
       (progn
-        (lilypond-ts--treesit-configure-capf lilypond-ts--completion-categories
-                                             lilypond-ts--capf-rules)
+        (lilypond-ts--treesit-configure-capf lilypond-ts--capf-rules)
         (add-hook 'completion-at-point-functions #'lilypond-ts--treesit-capf nil t))
     (remove-hook 'completion-at-point-functions #'lilypond-ts--treesit-capf t)))
 

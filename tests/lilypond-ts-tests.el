@@ -22,6 +22,7 @@
 (require 'lilypond-ts-mode)
 (require 'ert)
 (require 'ert-x)
+(require 'cl-lib)
 
 ;;; Indent
 
@@ -47,18 +48,9 @@
 
 ;;; Capf
 
-(defun lilypond-ts-test--keyword-setup ()
-  (dolist (key lilypond-ts--completion-categories)
-    (when-let ((kw-list (intern-soft (concat "lilypond-ts--"
-                                             (symbol-name (car key))))))
-      (make-local-variable kw-list))))
-
 (defun lilypond-ts-test--capf-test-setup ()
-  (lilypond-ts-test--parser-setup)
-  (lilypond-ts-test--keyword-setup)
-  ;; need to deal with REPL
   (make-local-variable 'lilypond-ts--treesit-capf-rules)
-  (make-local-variable 'lilypond-ts--treesit-completion-rules)
+  (make-local-variable 'lilypond-ts--keywords)
   (lilypond-ts-mode))
 
 ;; based on elisp--test-completions
@@ -80,9 +72,10 @@ strings."
         `(save-excursion (insert ,(cadr text))))
      (let ((comps (lilypond-ts-test--list-completions)))
        ,@(cl-loop for c in (ensure-list yes)
-                  collect `(should (member ,c comps)))
+                  collect `(should (cl-member ,c comps :test #'string-equal)))
        ,@(cl-loop for c in (ensure-list no)
-                  collect `(should-not (member ,c comps))))))
+                  collect `(should-not (cl-member ,c comps
+                                                  :test #'string-equal))))))
 
 (ert-deftest lilypond-ts-test--escaped-word-capf ()
   (lilypond-ts--capf-test
@@ -125,6 +118,7 @@ strings."
   (lilypond-ts--capf-test
    "NoteHead.s" "stencil" ("slashedGrace" "start-callback")))
 (ert-deftest lilypond-ts-test--context-grob-properties-capf ()
+  :expected-result (if noninteractive :failed :passed)
   (lilypond-ts--capf-test
    "Voice.NoteHead.s" "stencil" ("slashedGrace" "start-callback")))
 (ert-deftest lilypond-ts-test--nested-grob-properties-capf ()

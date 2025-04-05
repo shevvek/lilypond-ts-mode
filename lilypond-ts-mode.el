@@ -151,6 +151,14 @@
 
 ;;; Mode-init
 
+(defcustom lilypond-ts-per-project-repl-p t
+  "Use a separate LilyPond REPL for each project.
+
+When t, sets `geiser-repl-per-project-p' and makes `lilypond-ts--keywords'
+local."
+  :group 'lilypond-ts
+  :type 'boolean)
+
 ;;;###autoload
 (define-derived-mode lilypond-ts-mode prog-mode "LilyPond"
   :group 'lilypond-ts
@@ -160,6 +168,12 @@
     ;; if lilypond-ts--lily-installs-alist is empty.
     (unless (multisession-value lilypond-ts--lily-installs-alist)
       (lilypond-ts-find-installs))
+    (setq-local geiser-repl-per-project-p lilypond-ts-per-project-repl-p)
+    (when lilypond-ts-per-project-repl-p
+      ;; Really this should be local per-REPL, not per-buffer, but not worth the
+      ;; effort unless there's an empirical performance hit
+      (make-local-variable 'lilypond-ts--keywords)
+      (setq lilypond-ts--keywords (default-value 'lilypond-ts--keywords)))
     (lilypond-ts--ensure-repl)
 
     (setq-local comment-start "%")
@@ -181,7 +195,7 @@
     ;; (setq-local treesit--font-lock-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (add-hook 'lilypond-ts-post-eval-hook
-              #'lilypond-ts--require-keyword-updates)
+              #'lilypond-ts--require-keyword-updates nil t)
     (treesit-major-mode-setup)
     (setq-local lisp-indent-function #'scheme-indent-function)
     ;; to do: set comment-use-syntax

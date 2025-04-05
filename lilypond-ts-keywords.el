@@ -48,6 +48,13 @@
   :type '(repeat string))
 
 (defun lilypond-ts--get-keywords (category)
+  "Retrieve CATEGORY from `lilypond-ts--keywords' and refresh if :needs-update.
+
+If :scm is defined and :needs-update is non-nil, run :scm via the REPL, then map
+:wrap-element data and propertize all strings with :company-kind.
+
+If CATEGORY does not define :match-function and data is non-empty, ensure that
+:match-regexp is up to date for matching any word in CATEGORY."
   (if-let* ((keyword-category (assq category lilypond-ts--keywords))
             ((plist-get keyword-category :needs-update))
             ((lilypond-ts--ensure-repl))
@@ -73,11 +80,25 @@
     keyword-category))
 
 (defun lilypond-ts--require-keyword-updates ()
-  (dolist (keyword-category lilypond-ts--keywords)
-    (when (plist-get keyword-category :scm)
-      (plist-put keyword-category :needs-update t))))
+  "Lazily refresh keywords and refontify LilyPond buffers sharing the same REPL."
+  (cl-loop for buffer being the buffers
+           when (and (eq 'lilypond-ts-mode
+                         (buffer-local-value 'major-mode buffer))
+                     (eq geiser-repl--repl
+                         (buffer-local-value 'geiser-repl--repl buffer)))
+           do (with-current-buffer buffer
+                ;; This is a bit of wasted work if project REPLS are disabled
+                ;; But doesn't seem worth optimizing for the non-default setting
+                (dolist (keyword-category lilypond-ts--keywords)
+                  (when (plist-get keyword-category :scm)
+                    (plist-put keyword-category :needs-update t)))
+                (treesit-font-lock-fontify-region (point-min) (point-max)))))
 
 (defun lilypond-ts--match-keyword (word category)
+  "Is string WORD in CATEGORY, looked up via `lilypond-ts--get-keywords'?
+
+Attempt matching using :match-function, :match-regexp, or against the raw
+keyword list, in that order of preference."
   (if-let ((keyword-category (lilypond-ts--get-keywords category))
            (matcher (or (plist-get keyword-category :match-function)
                         (plist-get keyword-category :match-regexp)))
@@ -102,9 +123,10 @@
 If there are any path elements after the grob type, only list grob properties
 that allow nesting."
   (if (lilypond-ts--ensure-repl)
-      (let ((tail (seq-drop-while (lambda (friend)
-                                    (not (lilypond-ts--match-keyword friend 'grobs)))
-                                  friends)))
+      (let ((tail (seq-drop-while
+                   (lambda (friend)
+                     (not (lilypond-ts--match-keyword friend 'grobs)))
+                   friends)))
         (geiser-eval--send/result
          `(:eval (ly:grob-property-completions ,(car tail) ,(cadr tail)))))
     (cadr (lilypond-ts--get-keywords 'grob-properties))))

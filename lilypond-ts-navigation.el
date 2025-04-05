@@ -179,7 +179,8 @@ If a watcher already exists for FNAME, load all nav data for that file from
                          file-dir '(change)
                          #'lilypond-ts--retry-init-watcher-callback))
                   lilypond-ts--watchers)))
-      (while-let ((nav-table (alist-get fname lilypond-ts--nav-data-update-stack
+      (while-let ((fname)
+                  (nav-table (alist-get fname lilypond-ts--nav-data-update-stack
                                         nil nil #'file-equal-p))
                   (buf (find-buffer-visiting fname)))
         (with-current-buffer buf

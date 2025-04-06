@@ -95,7 +95,7 @@
                               (arglist lilypond-ts--repl-arglist)
                               (repl-startup lilypond-ts--repl-startup)
                               (version-command lilypond-ts--repl-guile-version))
-(geiser-implementation-extension 'lilypond-guile "scm")
+;;(geiser-implementation-extension 'lilypond-guile "scm")
 (geiser-activate-implementation 'lilypond-guile)
 
 ;;; Interactive evaluation

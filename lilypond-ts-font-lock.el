@@ -22,9 +22,12 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
 
+(defvar lilypond-ts--texinfo-font-lock-keywords
+  '(("@[a-z@{}][a-z]*" 0 'font-lock-doc-markup-face t)
+    ("[{}@]" 0 'font-lock-escape-face prepend)))
+
 (defun lilypond-ts--fontify-texinfo-strings (node override start end &rest _)
-  (let ((font-lock-keywords '(("@[a-z@{}][a-z]*" 0 'font-lock-doc-markup-face t)
-                              ("[{}@]" 0 'font-lock-escape-face prepend))))
+  (let ((font-lock-keywords lilypond-ts--texinfo-font-lock-keywords))
     (font-lock-fontify-keywords-region (1+ (treesit-node-start node))
                                        (1- (treesit-node-end node)))))
 

@@ -22,6 +22,12 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
 
+(defun lilypond-ts--fontify-texinfo-strings (node override start end &rest _)
+  (let ((font-lock-keywords '(("@[a-z@{}][a-z]*" 0 'font-lock-doc-markup-face t)
+                              ("[{}@]" 0 'font-lock-escape-face prepend))))
+    (font-lock-fontify-keywords-region (1+ (treesit-node-start node))
+                                       (1- (treesit-node-end node)))))
+
 (defun lilypond-ts--fontify-scheme-defun (node override start end &rest _)
   (condition-case err
       (when-let*
@@ -168,95 +174,140 @@ exactly (not counting the suffix `!')."
      :feature scheme-numbers
      ((scheme_number) @font-lock-number-face)))
 
+(defface lilypond-ts-font-lock-context-face
+  '((t :inherit (bold font-lock-type-face)))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-identifier-face
+  '((t :inherit font-lock-variable-use-face))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-markup-face
+  '((t :inherit font-lock-function-call-face))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-markup-keyword-face
+  '((t :inherit (bold lilypond-ts-font-lock-markup-face)))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-event-face
+  '((t :inherit font-lock-builtin-face))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-articulation-face
+  '((t :inherit (bold lilypond-ts-font-lock-event-face)))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-duration-face
+  '((t :inherit bold))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-slur-face
+  nil
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-beam-face
+  nil
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-tie-face
+  nil
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-phrasing-slur-face
+  '((t :inherit (bold font-lock-variable-use-face)))
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
+(defface lilypond-ts-font-lock-ligature-face
+  nil
+  "Face for displaying the right portion of the nav line duration bar."
+  :group 'lilypond-ts-font-lock)
+
 (defun lilypond-ts--font-lock-rules ()
   `( :default-language lilypond
 
      ,@(lilypond-ts--scheme-font-lock-rules)
 
      :feature comment
-     (((comment) @font-lock-comment-face)
-      ((scheme_comment) @font-lock-comment-face))
+     ([(comment) (scheme_comment)] @font-lock-comment-face)
 
      :feature string
-     ((string "\"" @font-lock-string-face)
-      (scheme_string "\"" @font-lock-string-face)
-      ([(string_fragment)
-        (scheme_string_fragment)] @font-lock-string-face)
-      ([(escape_sequence)
-        (scheme_escape_sequence)] @font-lock-escape-face))
+     ([(string) (scheme_string)] @font-lock-string-face)
 
-     :feature escaped-word
-     ((escaped_word) @font-lock-variable-use-face)
+     :feature string
+     :override prepend
+     ([(escape_sequence) (scheme_escape_sequence)] @font-lock-escape-face)
+
+     :feature texinfo
+     :override t
+     ([(string) (scheme_string)] @lilypond-ts--fontify-texinfo-strings)
 
      :feature object
-     (((symbol) @font-lock-type-face
-       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts 'grobs)
-              @font-lock-type-face))
-      ((escaped_word) @font-lock-type-face
+     (([(symbol) (escaped_word)] @lilypond-ts-font-lock-context-face
        (:pred ,(lilypond-ts--keyword-node-predicate 'contexts)
+              @lilypond-ts-font-lock-context-face))
+      ([(symbol) (escaped_word)] @font-lock-type-face
+       (:pred ,(lilypond-ts--keyword-node-predicate 'grobs)
               @font-lock-type-face)))
 
-     :feature object
-     :override prepend
-     (((symbol) @bold
-       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts)
-              @bold))
-      ((escaped_word) @bold
-       (:pred ,(lilypond-ts--keyword-node-predicate 'contexts)
-              @bold)))
+     :feature properties
+     (((symbol) @font-lock-property-face
+       (:match ,(lilypond-ts--keyword-node-predicate 'translation-properties
+                                                     'grob-properties)
+               @font-lock-property-face))
+      ((property_expression (symbol) @font-lock-property-face)))
 
      :feature number
-     (([(fraction)
-        (decimal_number)] @font-lock-number-face)
-      ((unsigned_integer) @bold
-       :anchor
-       (punctuation ".") @bold :*)
-      ((instrument_string_number) @font-lock-number-face))
-
-     :feature number
-     :override t
-     (((escaped_word) @bold
+     (((escaped_word) @lilypond-ts-font-lock-duration-face
        (:match ,(rx bol "\\" (or "breve" "longa" "maxima") eol)
-               @bold))
-      ((punctuation "*") @bold :anchor
+               @lilypond-ts-font-lock-duration-face))
+      ((punctuation "*") @lilypond-ts-font-lock-duration-face :anchor
        [(fraction)
         (decimal_number)
-        (unsigned_integer)] @bold))
+        (unsigned_integer)] @lilypond-ts-font-lock-duration-face)
+      ([(fraction) (decimal_number)] @font-lock-number-face)
+      ((unsigned_integer) @lilypond-ts-font-lock-duration-face
+       :anchor
+       (punctuation ".") @lilypond-ts-font-lock-duration-face :*)
+      ((instrument_string_number) @font-lock-number-face))
 
      :feature markup
      :override t
-     (((escaped_word) @font-lock-function-call-face
+     (((escaped_word) @lilypond-ts-font-lock-markup-face
        (:pred ,(lilypond-ts--keyword-node-predicate 'markup-functions)
-              @font-lock-function-call-face)))
+              @lilypond-ts-font-lock-markup-face)))
 
      :feature markup
      :override t
-     (((escaped_word) @font-lock-function-call-face
-       (:match "^\\\\markup\\(list\\)?$" @font-lock-function-call-face)))
+     (((escaped_word) @lilypond-ts-font-lock-markup-keyword-face
+       (:match "^\\\\markup\\(list\\)?$"
+               @lilypond-ts-font-lock-markup-keyword-face)))
 
      :feature expression
      :override t
-     (((dynamic) @font-lock-builtin-face)
-      (((escaped_word) @font-lock-builtin-face
+     (((dynamic) @lilypond-ts-font-lock-articulation-face)
+      (((escaped_word) @lilypond-ts-font-lock-event-face
         (:pred ,(lilypond-ts--keyword-node-predicate 'post-events
                                                      'event-functions)
-               @font-lock-builtin-face)))
-      ((punctuation ["-" "_" "^"]) @font-lock-builtin-face
+               @lilypond-ts-font-lock-event-face)))
+      ((punctuation ["-" "_" "^"]) @lilypond-ts-font-lock-articulation-face
        :anchor
-       (punctuation ["!" "." "-" "^" "_" ">" "+"]) @font-lock-builtin-face)
-      ((punctuation ":") @font-lock-builtin-face
+       (punctuation ["!" "." "-" "^" "_" ">" "+"])
+       @lilypond-ts-font-lock-articulation-face)
+      ((punctuation ":") @lilypond-ts-font-lock-event-face
        :anchor
-       (unsigned_integer) @font-lock-builtin-face))
-
-     :feature expression
-     :override prepend
-     (((dynamic) @bold)
-      ((punctuation ["-" "_" "^"]) @bold
-       :anchor
-       (punctuation ["!" "." "-" "^" "_" ">" "+"]) @bold)
-      ;; ((escaped_word) @bold
-      ;;  (:match  "\\\\[[:punct:]rsmfpz]+" @bold))
-      )
+       (unsigned_integer) @lilypond-ts-font-lock-event-face))
 
      :feature keyword
      :override t
@@ -266,26 +317,44 @@ exactly (not counting the suffix `!')."
               @font-lock-keyword-face))
       (((escaped_word) @font-lock-keyword-face
         (:match "\\\\override" @font-lock-keyword-face))
-       :anchor [(property_expression)
-                (assignment_lhs)])
+       :anchor [(property_expression) (assignment_lhs)])
       ((((escaped_word) @font-lock-keyword-face
          (:match ,(rx bol "\\" "=" eol) @font-lock-keyword-face))
         :anchor
         (unsigned_integer) @font-lock-number-face)))
 
      :feature phrasing
-     :override prepend
-     ((punctuation ["\\(" "\\)"]) @font-lock-variable-name-face @bold)
-     ))
+     (((punctuation ["(" ")"] @lilypond-ts-font-lock-slur-face))
+      ((punctuation ["[" "]"] @lilypond-ts-font-lock-beam-face))
+      ((punctuation ["~"] @lilypond-ts-font-lock-tie-face))
+      ((punctuation ["\\(" "\\)"] @lilypond-ts-font-lock-phrasing-slur-face))
+      ((ligature) @lilypond-ts-font-lock-ligature-face))
+
+     :feature escaped-word
+     ((escaped_word) @lilypond-ts-font-lock-identifier-face)
+
+     :feature punctuation
+     (((expression_block ["{" "}"] @font-lock-bracket-face))
+      ((parallel_music ["<<" ">>"] @font-lock-bracket-face))
+      ((chord ["<" ">"] @font-lock-bracket-face))
+      ((punctuation "=" @font-lock-operator-face))
+      ((punctuation ["," "'"] @font-lock-negation-char-face))
+      ((punctuation ["?" "!"] @font-lock-misc-punctuation-face))
+      ((property_expression (punctuation "." @font-lock-delimiter-face)))
+      ((punctuation ["-" "^" "_"] @font-lock-delimiter-face)
+       :anchor
+       [(escaped_word) (string) (punctuation ["(" "[" "~" "\\("])])
+      (punctuation) @font-lock-punctuation-face)))
 
 (defvar lilypond-ts--font-lock-features
   '(( comment string escaped-word
       scheme-keys scheme-defuns scheme-let scheme-objects)
     ( keyword expression object markup
       scheme-words)
-    ( number phrasing
+    ( number phrasing texinfo
       scheme-constants scheme-numbers scheme-fluids)
-    ( scheme-predicates scheme-side-effects scheme-punctuation)))
+    ( punctuation properties
+      scheme-predicates scheme-side-effects scheme-punctuation)))
 
 (provide 'lilypond-ts-font-lock)
 ;;; lilypond-ts-font-lock.el ends here

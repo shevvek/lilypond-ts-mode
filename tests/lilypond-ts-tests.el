@@ -218,7 +218,7 @@ autodoc matches the literal string CORRECT."
       (lilypond-ts-mode)
       (should-not (lilypond-ts--match-keyword varname 'post-events))
       (font-lock-ensure)
-      (should (eq 'font-lock-variable-use-face
+      (should (eq 'lilypond-ts-font-lock-identifier-face
                   (get-char-property (- (point-max) 5) 'face)))
       (if whole-buffer
           (lilypond-ts-eval-buffer)
@@ -226,7 +226,7 @@ autodoc matches the literal string CORRECT."
         (lilypond-ts-eval-region (point) (pos-eol)))
       (should (lilypond-ts--match-keyword varname 'post-events))
       (font-lock-ensure)
-      (should (eq 'font-lock-builtin-face
+      (should (eq 'lilypond-ts-font-lock-event-face
                   (get-char-property (- (point-max) 5) 'face))))))
 
 (ert-deftest lilypond-ts-test--eval-region-refresh ()

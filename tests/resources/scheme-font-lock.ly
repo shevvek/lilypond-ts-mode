@@ -97,8 +97,14 @@ markup-notehead =
 ;; <- nil
 ;;  ^ font-lock-keyword-face
 ;;                       ^ nil
-     "Test nested language blocks."
+     "Test nested @var{language} blocks."
 %%   ^ font-lock-string-face
+%%                ^ (font-lock-escape-face font-lock-doc-markup-face)
+%%                 ^ font-lock-doc-markup-face
+%%                    ^ (font-lock-escape-face font-lock-string-face)
+%%                     ^ font-lock-string-face
+%%                             ^ (font-lock-escape-face font-lock-string-face)
+%%                              ^ font-lock-string-face
      #{
 %% <- nil
        \override NoteHead.stencil = #(lambda (grob)
@@ -110,11 +116,11 @@ markup-notehead =
                                        (grob-interpret-markup grob #{
 %% <- nil
                                          \markup \rotate #90 \m
-%%                                       ^ (font-lock-function-call-face)
-%%                                               ^ font-lock-function-call-face
+%%                                       ^ lilypond-ts-font-lock-markup-keyword-face
+%%                                               ^ lilypond-ts-font-lock-markup-face
 %%                                                      ^ nil
 %%                                                        ^ font-lock-number-face
-%%                                                           ^ font-lock-variable-use-face
+%%                                                           ^ lilypond-ts-font-lock-identifier-face
                                        #}))
 %% <- nil
      #})

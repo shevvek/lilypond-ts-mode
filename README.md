@@ -44,7 +44,7 @@ Contributions and bug reports are very welcome.
 ## Customization
 If you have LilyPond installed in a non-standard directory, add it to `lilypond-ts-search-path`, then refresh LilyPond installs. By default, `lilypond-ts-mode` won't search for new LilyPond installations on startup unless the cached list of installs is empty.
 
-If you customize nothing else, you will probably want to add your LilyPond include folders to `lilypond-ts-default-includes` so that they can be found when you compile. To include your custom commands and functions in autocompletion, autodoc, and font lock highlighting, also add your top-level LilyPond include files themselves to `lilypond-ts--lily-argument-sets` under `repl` and `:includes`.
+If you customize nothing else, you will probably want to add your LilyPond include folders to `lilypond-ts-default-includes` so that they can be found when you compile. To include your custom commands and functions in autocompletion, autodoc, and font lock highlighting, also add your top-level LilyPond include files themselves to `lilypond-ts-repl-includes`.
 
 `lilypond-ts-mode` does not currently directly support MIDI or PDF preview, but it uses Emacs compilation mode. To set up automatic preview, add a callback for your preferred previewer to `compilation-finish-functions`.
 

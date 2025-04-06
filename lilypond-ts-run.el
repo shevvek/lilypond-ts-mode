@@ -217,6 +217,23 @@ This is a good candidate for `.dir-locals.el.'"
   :group 'lilypond-ts-run
   :type '(choice file directory (repeat (choice file directory))))
 
+(defcustom lilypond-ts-repl-includes nil
+  "List of LilyPond include arguments for the REPL.
+
+Directories will be passed using `-I'.  Files will be passed using
+`-dinclude-settings='.
+
+This is a good candidate for `.dir-locals.el.'"
+  :group 'lilypond-ts-run
+  :type '(choice file directory (repeat (choice file directory))))
+
+(defcustom lilypond-ts-repl-version nil
+  "LilyPond version to use for the REPL.
+
+This is a good candidate for `.dir-locals.el.'"
+  :group 'lilypond-ts-run
+  :type 'string)
+
 (defcustom lilypond-ts--lily-argument-sets
   `((score :inherit (navigation defaults))
     (parts :inherit defaults)
@@ -224,6 +241,8 @@ This is a good candidate for `.dir-locals.el.'"
                                              "navigation/navigation.ily"))
     (repl :args "-dcompile-scheme-code"
           :env "GUILE_AUTO_COMPILE=1"
+          :includes lilypond-ts-repl-includes
+          :version lilypond-ts-repl-version
           :inherit defaults)
     (defaults :args lilypond-ts-default-lily-args
               :includes (lilypond-ts-default-includes
@@ -300,10 +319,10 @@ sets named in :inherits."
            (args (funcall flatten-prop :args))
            (includes (funcall flatten-prop :includes))
            (env (funcall flatten-prop :env))
-           (version (or (plist-get cmd-plist :version)
-                        (seq-some (lambda (parent-cmd)
-                                    (plist-get parent-cmd :version))
-                                  inherits))))
+           (version (eval (or (plist-get cmd-plist :version)
+                              (seq-some (lambda (parent-cmd)
+                                          (plist-get parent-cmd :version))
+                                        inherits)))))
       `(:args ,args :includes ,includes :env ,env :version ,version))))
 
 (defun lilypond-ts--format-lily-args (&rest cmd-plist)

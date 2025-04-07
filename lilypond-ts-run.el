@@ -292,10 +292,7 @@ All keys are optional."
                         (:env (choice string variable
                                       (repeat (choice string variable sexp))
                                       sexp))
-                        (:version string
-                                  :match (lambda (w v)
-                                           (version-to-list v))
-                                  :type-error "Invalid version string.")
+                        (:version (choice variable string sexp))
                         (:inherit (choice symbol
                                           (repeat symbol)))))))
 

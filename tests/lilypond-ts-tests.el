@@ -20,6 +20,7 @@
 ;;; Code:
 
 (require 'lilypond-ts-mode)
+(require 'lilypond-ts-scheme-mode)
 (require 'ert)
 (require 'ert-x)
 (require 'cl-lib)
@@ -39,12 +40,23 @@
   (setq-local lisp-indent-function #'scheme-indent-function)
   (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
   (indent-region-line-by-line (point-min) (point-max))
-  (remove-list-of-text-properties (point-min) (point-max) '(syntax-table)))
+  (set-text-properties (point-min) (point-max) nil))
 
-(ert-deftest lilypond-ts--indent-tests ()
+(defun lilypond-ts-test--scheme-indent-test ()
+  (lilypond-ts-scheme-mode)
+  (indent-region (point-min) (point-max))
+  (set-text-properties (point-min) (point-max) nil))
+
+(ert-deftest lilypond-ts-test--indent-tests ()
   (skip-unless (treesit-ready-p 'lilypond))
   (ert-test-erts-file (ert-resource-file "indent.erts")
                       #'lilypond-ts-test--indent-test))
+
+(ert-deftest lilypond-ts-test--scheme-indent-tests ()
+  (skip-unless (and (treesit-ready-p 'lilypond-scheme)
+                    (treesit-ready-p 'lilypond)))
+  (ert-test-erts-file (ert-resource-file "scheme-indent.erts")
+                      #'lilypond-ts-test--scheme-indent-test))
 
 ;;; Capf
 

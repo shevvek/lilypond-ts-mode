@@ -40,30 +40,31 @@
   "Find treesit ranges for embedded Scheme and Lilypond blocks, which may be
 nested. Flatten them into a list of Scheme ranges that excludes embedded blocks
 of Lilypond."
-  (let* ((scheme-ranges (treesit-query-range (treesit-buffer-root-node)
+  (let* ((scheme-ranges (treesit-query-range 'lilypond
                                              '((embedded_scheme_text) @capture)
                                              start end))
-         (ly-ranges (treesit-query-range (treesit-buffer-root-node)
+         (ly-ranges (treesit-query-range 'lilypond
                                          '((scheme_embedded_lilypond) @capture)
                                          start end))
-         ;; Make a single list with all the range bounds. Since ranges are
-         ;; dotted pairs, can't simply concatenate them.
-         (boundaries (seq-reduce (lambda (l p)
-                                   (cons (cdr p)
-                                         (cons (car p) l)))
-                                 `(,@scheme-ranges ,@ly-ranges)
-                                 nil))
-         ;; Since treesit queries automatically expand their bounds to the
-         ;; captured node, and since embedded Lilypond will always be inside
-         ;; embedded Scheme, it can be assumed that the lowest Scheme bound will
-         ;; be less than the lowest Lilypond bound.
-         (stripes (seq-split (sort boundaries) 2)))
-    stripes))
+         (scheme-range-bounds (flatten-list scheme-ranges))
+         (ly-range-bounds (remq (or end (point-max))
+                                (remq (or start (point-min))
+                                      (flatten-list ly-ranges))))
+         (outer-lily-p (and scheme-range-bounds ly-range-bounds
+                            (> (apply #'min scheme-range-bounds)
+                               (apply #'min ly-range-bounds))))
+         (scheme-stripe-bounds (sort (append scheme-range-bounds
+                                             ly-range-bounds
+                                             (when outer-lily-p
+                                               (list (or start (point-min))
+                                                     (or end (point-max))))))))
+    (seq-split scheme-stripe-bounds 2)))
 
 (defun lilypond-ts--lang-block-parent (node &rest _)
   (treesit-parent-until node (regexp-opt '("embedded_scheme_text"
                                            "scheme_embedded_lilypond"
-                                           "lilypond_program"))))
+                                           "lilypond_program"
+                                           "scheme_program"))))
 
 (defun lilypond-ts--scheme-at-p (&optional pos)
   (let ((node (treesit-node-at (or pos (point)) nil t)))

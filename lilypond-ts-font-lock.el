@@ -116,7 +116,21 @@ exactly (not counting the suffix `!')."
                                (? "!") eol)))))))
 
 (defun lilypond-ts--scheme-font-lock-rules ()
-  `( :feature scheme-defuns
+  `( :feature comment
+     ((scheme_comment) @font-lock-comment-face)
+
+     :feature string
+     ((scheme_string) @font-lock-string-face)
+
+     :feature string
+     :override prepend
+     ((scheme_escape_sequence) @font-lock-escape-face)
+
+     :feature texinfo
+     :override t
+     ((scheme_string) @lilypond-ts--fontify-texinfo-strings)
+
+     :feature scheme-defuns
      ((scheme_list
        :anchor
        ((scheme_symbol) @font-lock-keyword-face
@@ -167,12 +181,7 @@ exactly (not counting the suffix `!')."
        (:match "^'()$" @bold)))
 
      :feature scheme-constants
-     (([(scheme_boolean)
-        (scheme_character)] @font-lock-constant-face)
-      ;; it looks weird to have ## in different colors
-      ((embedded_scheme_prefix) @font-lock-constant-face
-       (embedded_scheme_text :anchor [(scheme_boolean)
-                                      (scheme_character)])))
+     ([(scheme_boolean) (scheme_character)] @font-lock-constant-face)
 
      :feature scheme-numbers
      ((scheme_number) @font-lock-number-face)))
@@ -243,18 +252,18 @@ exactly (not counting the suffix `!')."
      ,@(lilypond-ts--scheme-font-lock-rules)
 
      :feature comment
-     ([(comment) (scheme_comment)] @font-lock-comment-face)
+     ((comment) @font-lock-comment-face)
 
      :feature string
-     ([(string) (scheme_string)] @font-lock-string-face)
+     ((string) @font-lock-string-face)
 
      :feature string
      :override prepend
-     ([(escape_sequence) (scheme_escape_sequence)] @font-lock-escape-face)
+     ((escape_sequence) @font-lock-escape-face)
 
      :feature texinfo
      :override t
-     ([(string) (scheme_string)] @lilypond-ts--fontify-texinfo-strings)
+     ((string) @lilypond-ts--fontify-texinfo-strings)
 
      :feature object
      (([(symbol) (escaped_word)] @lilypond-ts-font-lock-context-face
@@ -347,7 +356,13 @@ exactly (not counting the suffix `!')."
       ((punctuation ["-" "^" "_"] @font-lock-delimiter-face)
        :anchor
        [(escaped_word) (string) (punctuation ["(" "[" "~" "\\("])])
-      (punctuation) @font-lock-punctuation-face)))
+      (punctuation) @font-lock-punctuation-face)
+
+     :feature scheme-constants
+     ;; it looks weird to have ## in different colors
+     (((embedded_scheme_prefix) @font-lock-constant-face
+       :anchor
+       (_) @_ (:match "^#" @_)))))
 
 (defvar lilypond-ts--font-lock-features
   '(( comment string escaped-word

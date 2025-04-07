@@ -1,0 +1,67 @@
+Name: native-scheme-indent
+=-=
+(define (baz)
+  "Line wrapped
+docstring."
+  (let ((foo (+ 42
+                69)))
+    (ly:message
+     "~a" foo)))
+=-=-=
+
+Name: scheme-embedded-lilypond-indent
+=-=
+(define-music-function (m) (ly:music?)
+  #{
+    {
+      <<
+        {
+          c'1
+          d'1
+          <<
+            #m
+          >>
+          e'1
+        }
+      >>
+    }
+  #})
+=-=-=
+
+Name: scheme-embedded-lilypond-scheme-indent
+=-=
+(define-music-function (m) (markup?)
+  #{
+    \override NoteHead.stencil = #(lambda (g)
+                                    (let ((foo (+ 42
+                                                  69)))
+                                      (ly:message
+                                       "~a" foo))
+                                    #f)
+  #})
+=-=-=
+
+Name: scheme-embedded-lilypond-hanging-scheme-indent
+=-=
+(define-music-function (m) (markup?)
+  #{
+    \override NoteHead.stencil =
+      #(lambda (g)
+         (let ((foo (+ 42
+                       69)))
+           (ly:message
+            "~a" foo))
+         #f)
+  #})
+=-=-=
+
+Name: scheme-nested-lilypond-scheme-indent
+=-=
+(define-music-function (m) (markup?)
+  #{
+    \override NoteHead.stencil = #(lambda (grob)
+                                    (grob-interpret-markup grob #{
+                                      \markup \rotate #90 m
+                                    #}))
+  #})
+=-=-=

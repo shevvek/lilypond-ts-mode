@@ -112,13 +112,29 @@
       ;; calculate-lisp-indent already takes initial indent into account
       column-0
       (lambda (node &rest _)
-        (calculate-lisp-indent (treesit-node-start
-                                (lilypond-ts--lang-block-parent node)))))
+        (car (ensure-list
+              (calculate-lisp-indent (treesit-node-start
+                                      (lilypond-ts--lang-block-parent node)))))))
 
      ;; Base top level indentation
-     ((parent-is "lilypond_program") column-0 0)
-     ;; Fallback default
-     (catch-all parent 0))))
+     ((parent-is "program") parent-bol 0))
+    (lilypond-scheme
+     ((node-is "#{") parent-bol 0)
+     ((node-is "#}") parent-bol 0)
+
+     ((parent-is "scheme_embedded_lilypond") parent-bol lilypond-ts-indent-offset)
+
+     (no-node column-0 0)
+
+     ((parent-is "program") column-0 0)
+
+     (catch-all
+      ;; calculate-lisp-indent already takes initial indent into account
+      column-0
+      (lambda (node parent &rest _)
+        (calculate-lisp-indent
+         (treesit-node-start
+          (treesit-node-top-level node '(not "program") t))))))))
 
 ;;; Keymap
 

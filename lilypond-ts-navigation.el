@@ -87,7 +87,7 @@ property."
              when loc2 do (apply #'lilypond-ts--go-to-loc nil loc2)
              unless (and loc2
                          (eq score-id1 score-id2)
-                         (= end-mom1 beg-mom2))
+                         (<= end-mom1 beg-mom2))
              do (lilypond-ts--update-overlay tick segment-boundary
                                              (if loc2
                                                  (setq segment-boundary (point))

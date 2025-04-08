@@ -27,12 +27,6 @@
 (require 'lilypond-ts-keywords)
 (require 'lilypond-ts-autodoc)
 
-(defvar lilypond-ts--default-completions-function
-  (lambda (key)
-    `(lilypond-ts-list ,key)))
-(defvar lilypond-ts--capf-predicate-filter
-  (lambda (str)
-    (string-trim-left str "\\\\")))
 (defvar lilypond-ts--capf-properties
   `( :company-kind lilypond-ts--company-kind
      :company-docsig
@@ -40,7 +34,6 @@
      :company-doc-buffer geiser-capf--company-doc-buffer
      :company-location geiser-capf--company-location))
 
-(defvar lilypond-ts--treesit-completion-rules nil)
 (defvar lilypond-ts--treesit-capf-rules nil)
 
 (defun lilypond-ts--company-kind (str)

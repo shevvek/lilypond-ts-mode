@@ -118,6 +118,12 @@ foo =
   "baz"
 =-=-=
 
+Name: hanging-assignment-indent-2
+=-=
+foo
+  = "baz"
+=-=-=
+
 Name: hanging-scheme-indent
 =-=
 

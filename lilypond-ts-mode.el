@@ -79,7 +79,8 @@
   "Indent for line breaks before or after the `=' in a LilyPond expression."
   :group 'lilypond-ts
   :type 'natnum)
-(defvar lilypond-ts--indent-rules
+
+(defun lilypond-ts--indent-rules ()
   `((lilypond
      ;; Don't indent wrapped strings
      (no-node column-0 0)
@@ -202,7 +203,7 @@ local."
                 (apply #'treesit-font-lock-rules
                        (lilypond-ts--font-lock-rules)))
     (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
-    (setq-local treesit-simple-indent-rules lilypond-ts--indent-rules)
+    (setq-local treesit-simple-indent-rules (lilypond-ts--indent-rules))
     ;; (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)
     (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)

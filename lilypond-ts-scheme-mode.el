@@ -116,7 +116,7 @@
                           ,@(lilypond-ts--font-lock-rules))))
     (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
     (setq-local treesit-font-lock-level 3)
-    (setq-local treesit-simple-indent-rules lilypond-ts--indent-rules)
+    (setq-local treesit-simple-indent-rules (lilypond-ts--indent-rules))
     (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)
     ;; (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)

@@ -34,7 +34,7 @@
 (defun lilypond-ts-test--indent-test ()
   (lilypond-ts-test--parser-setup)
   (setq-local treesit-simple-indent-rules
-              (treesit--indent-rules-optimize lilypond-ts--indent-rules))
+              (treesit--indent-rules-optimize (lilypond-ts--indent-rules)))
   (setq-local indent-line-function #'treesit-indent)
   (setq-local indent-region-function #'treesit-indent-region)
   (setq-local lisp-indent-function #'scheme-indent-function)

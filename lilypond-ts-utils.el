@@ -102,6 +102,5 @@ BEFORE and AFTER THING nodes on either side of NODE."
                   (symbol-name (car (elt captures index)))))
          (start-index (- index offset)))
       (seq-subseq captures start-index (+ start-index capture-count)))))
-
 (provide 'lilypond-ts-utils)
 ;;; lilypond-ts-utils.el ends here

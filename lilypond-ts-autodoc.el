@@ -23,7 +23,7 @@
 
 (require 'geiser)
 (require 'geiser-guile)
-(require 'lilypond-ts-base)
+(require 'lilypond-ts-syntax)
 (require 'lilypond-ts-repl)
 
 (defun lilypond-ts-autodoc--format-arg (arg)

@@ -2,12 +2,6 @@
 
 ;; Copyright (c) 2025 Saul James Tobin
 
-;; Author: Saul James Tobin
-;; Version: 0.1-alpha
-;; Package-Requires: ((geiser "0.31.1") (geiser-guile "0.28.2") (emacs "30.1"))
-;; Keywords: languages, tools, scheme, lilypond, geiser, lisp
-;; URL: https://github.com/shevvek/lilypond-ts-mode
-
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
@@ -23,19 +17,19 @@
 
 ;;; Commentary:
 
-;; A modern `treesit' major mode for editing GNU LilyPond files, with tight
-;; LilyPond REPL integration via `geiser', and "vertical" rhythm-aware
-;; navigation. Features include:
+;; A `treesit' major mode for editing GNU LilyPond Scheme files, based on
+;; `lilypond-ts-mode'.  Most importantly, this includes support for arbitrarily
+;; nested embedded LilyPond code within .scm files.
 
-;; * Full support for nested Scheme and LilyPond embeddings.
-;; * Contextual completion-at-point and autodoc.
-;; * Detect and select version-compatible LilyPond installations for compilation
-;; and interactive evaluation.
-;; * Rhythmic navigation minor mode: easily edit the same beat across all parts.
+;; This is mainly aimed at an improved experience for GNU LilyPond development,
+;; but if someone were interested, a general Scheme TS mode could probably be
+;; factored out of this.
 
 ;;; Code:
 
-(require 'lilypond-ts-mode)
+(require 'lilypond-ts-common)
+
+;;; Grammar installation
 
 (defvar lilypond-ts-scheme-grammar-url
   '("https://github.com/shevvek/tree-sitter-lilypond-scheme/"
@@ -49,20 +43,11 @@
 (unless (treesit-language-available-p 'lilypond-scheme)
   (lilypond-ts-scheme--install))
 
+;;; Mode setup
+
 (defgroup lilypond-ts-scheme nil
   "Customization options for `lilypond-ts-scheme-mode'"
   :group 'lilypond-ts)
-
-(defun lilypond-ts-scheme--propertize-syntax (start end)
-  (cl-loop for (a . b) being intervals from start to end property 'treesit-parser
-           for embedded-parser = (get-char-property a 'treesit-parser)
-           if (and embedded-parser
-                   (eq 'lilypond (treesit-parser-language embedded-parser)))
-           do (lilypond-ts--propertize-syntax a b)
-           else do (put-text-property a b 'syntax-table scheme-mode-syntax-table)))
-
-(defsubst lilypond-ts-scheme--top-level-scheme-p (node)
-  (not (treesit-parent-until node "scheme_embedded_lilypond_text" nil)))
 
 (defvar lilypond-ts--scheme-lilypond-range-rule
   '( :embed lilypond
@@ -72,26 +57,14 @@
        (:pred lilypond-ts-scheme--top-level-scheme-p @capture)))))
 
 ;;;###autoload
-(define-derived-mode lilypond-ts-scheme-mode prog-mode "LilyPond Scheme"
+(define-derived-mode lilypond-ts-scheme-mode lilypond-ts-common-mode
+  "LilyPond Scheme"
   :group 'lilypond-ts-scheme
   (when (and (treesit-ready-p 'lilypond-scheme)
              (treesit-ready-p 'lilypond))
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond-scheme))
-    ;; Recursive directory search takes some time, so only trigger automatically
-    ;; if lilypond-ts--lily-installs-alist is empty.
-    (unless (multisession-value lilypond-ts--lily-installs-alist)
-      (lilypond-ts-find-installs))
-    (setq-local geiser-repl-per-project-p lilypond-ts-per-project-repl-p)
-    (when lilypond-ts-per-project-repl-p
-      ;; Really this should be local per-REPL, not per-buffer, but not worth the
-      ;; effort unless there's an empirical performance hit
-      (make-local-variable 'lilypond-ts--keywords)
-      (setq lilypond-ts--keywords (default-value 'lilypond-ts--keywords)))
-    (add-hook 'hack-local-variables-hook #'lilypond-ts--ensure-repl nil t)
 
     (setq-local comment-start ";")
-    (setq-local comment-start-skip "[%;]+{? *")
-    (setq-local comment-end "")
     (setq-local block-comment-start "#!")
     (setq-local block-comment-end "!#")
 
@@ -115,18 +88,13 @@
                           ,@(lilypond-ts--scheme-font-lock-rules)
                           ,@(lilypond-ts--font-lock-rules))))
     (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
-    (setq-local treesit-font-lock-level 3)
-    (setq-local treesit-simple-indent-rules (lilypond-ts--indent-rules))
-    (setq-local treesit--indent-verbose t)
     ;; (setq-local treesit--font-lock-verbose t)
     ;; (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
-    (add-hook 'lilypond-ts-post-eval-hook
-              #'lilypond-ts--require-keyword-updates nil t)
     (treesit-major-mode-setup)
-    (setq-local lisp-indent-function #'scheme-indent-function)
     ;; to do: set comment-use-syntax
     (setq-local syntax-propertize-function
-                #'lilypond-ts-scheme--propertize-syntax)))
+                #'lilypond-ts-scheme--propertize-syntax)
+    (lilypond-ts-autodoc-mode 1)))
 
 (derived-mode-set-parent 'lilypond-ts-scheme-mode 'scheme-mode)
 (add-to-list 'auto-mode-alist '("\\.scm\\'" . lilypond-ts-scheme-mode))

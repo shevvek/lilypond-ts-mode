@@ -24,6 +24,7 @@
 ;;; Code:
 
 (require 'lilypond-ts-base)
+(require 'lilypond-ts-thing)
 (require 'lilypond-ts-keywords)
 (require 'lilypond-ts-autodoc)
 

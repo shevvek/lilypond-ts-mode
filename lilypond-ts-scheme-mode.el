@@ -72,12 +72,7 @@
                 (apply #'treesit-range-rules
                        lilypond-ts--scheme-lilypond-range-rule))
     (setq-local treesit-language-at-point-function
-                (lambda (pos)
-                  (if (treesit-parent-until
-                       (treesit-node-at pos 'lilypond-scheme)
-                       "embedded_lilypond_text")
-                      'lilypond
-                    'lilypond-scheme)))
+                #'lilypond-ts-scheme--treesit-language-at)
 
     (setq-local treesit-thing-settings lilypond-ts--thing-settings)
     (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)

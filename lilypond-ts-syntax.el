@@ -89,6 +89,26 @@ of Lilypond."
                                           '("scheme_embedded_lilypond"
                                             "embedded_scheme_prefix")))))))
 
+(defun lilypond-ts-scheme--treesit-language-at (pos)
+  (if (treesit-parent-until
+       (treesit-node-at pos 'lilypond-scheme)
+       "embedded_lilypond_text")
+      'lilypond
+    'lilypond-scheme))
+
+(defun lilypond-ts--scheme-defun-lambda-p (node)
+  "Given NODE is the second child of a Scheme defun form, is it a named defun?"
+  (or (treesit-node-match-p node "scheme_list")
+      (cl-loop for sib = (treesit-node-next-sibling node t)
+               then (treesit-node-next-sibling sib t)
+               always sib
+               while (treesit-node-match-p sib "comment")
+               finally return (when-let ((maybe-lambda (treesit-node-get sib
+                                                         '((child 0 t)
+                                                           (text t)))))
+                                (string-match-p "lambda\\|function"
+                                                maybe-lambda)))))
+
 (defun lilypond-ts--comment-start-at-point (&optional pos)
   (if (lilypond-ts--scheme-at-p (min (1+ (or pos (point)))
                                      (point-max)))

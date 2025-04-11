@@ -21,6 +21,7 @@
 
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-keywords)
+(require 'lilypond-ts-syntax)
 
 (defvar lilypond-ts--texinfo-font-lock-keywords
   '(("@[a-z@{}][a-z]*" 0 'font-lock-doc-markup-face t)
@@ -37,20 +38,9 @@
           ((kw (treesit-node-get node '((sibling -1 t)
                                         (text t))))
            (name-node (treesit-search-subtree node "scheme_symbol"))
-           (default-face
-            (if (or (treesit-node-match-p node "scheme_list")
-                    (cl-loop for sib = (treesit-node-next-sibling node t)
-                             then (treesit-node-next-sibling sib t)
-                             always sib
-                             while (treesit-node-match-p sib "comment")
-                             finally return
-                             (when-let ((maybe-lambda (treesit-node-get sib
-                                                        '((child 0 t)
-                                                          (text t)))))
-                               (string-match-p "lambda\\|function"
-                                               maybe-lambda))))
-                'font-lock-function-name-face
-              'font-lock-variable-name-face)))
+           (default-face (if (lilypond-ts--scheme-defun-lambda-p node)
+                             'font-lock-function-name-face
+                           'font-lock-variable-name-face)))
         (treesit-fontify-with-override (treesit-node-start name-node)
                                        (treesit-node-end name-node)
                                        (pcase kw

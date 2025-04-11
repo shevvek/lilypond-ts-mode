@@ -41,17 +41,48 @@
 `lilypond-ts--treesit-capf-setup'.")
 
 (defvar lilypond-ts--treesit-capf-default-matcher
-  #'lilypond-ts--match-keyword)
+  #'lilypond-ts--match-keyword
+  "Function used by `lilypond-ts--treesit-capf-setup' to generate predicates.
+
+This function should accept arguments WORD and KEY, returning non-nil if WORD
+belongs to the keyword category denoted by KEY.  For example, it could be
+something like:
+
+(lambda (word key)
+ (member word (alist-get key keyword-alist)))")
 
 (defvar lilypond-ts--treesit-capf-default-make-table
-  #'lilypond-ts--keyword-completion-table)
+  #'lilypond-ts--keyword-completion-table
+  "Function used by `lilypond-ts--treesit-capf-setup' to generate completions.
 
-;;;
+This function should accept argument KEY, returning a function like:
 
-(defun lilypond-ts--company-kind (str)
+(lambda (prefix &rest friends)
+  (completion-table-dynamic ...))
+
+Where PREFIX is the string to be completed and FRIENDS are the text of
+neighboring `treesit' nodes captured by the capf query.
+
+A simple version could ignore PREFIX and FRIENDS, populating the completion
+table via:
+
+(alist-get key keyword-alist)
+
+The FRIENDS argument is available in order to allow for generating completions
+in a way that depends on the semantic context.")
+
+;;; These functions are fairly generic
+
+(defsubst lilypond-ts--company-kind (str)
   (get-char-property 0 :company-kind str))
 
 (defun lilypond-ts--keyword-completion-table (key)
+  "Return a wrapper for a completion table listing KEY category keywords.
+
+Lookups are performed using `lilypond-ts--get-keywords', in order to trigger
+lazy updates via the REPL.  If a category defines :completions-function, the
+wrapper runs that with PREFIX and the text of neighboring captured nodes instead
+of simply populating the completion table with all words in the category."
   (lambda (&rest friends)
     (completion-table-dynamic
      (lambda (&optional pfx)
@@ -92,12 +123,59 @@
           seq))
 
 (defun lilypond-ts--treesit-capf-setup (capf-rules)
-  "Process CAPF-RULES into a form usable by `lilypond-ts--treesit-capf'.
+  "Compile CAPF-RULES into a form usable by `lilypond-ts--treesit-capf'.
 
 CAPF-RULES is an alist where each key is a `treesit' language, and each value is
 a list of rules for that language.
 
-Each rule is a list of form: (name query-sexp masks [post-proc])."
+Each rule is a list of form: (rule-name query masks [post-proc]).
+
+QUERY should be in sexp form, and may match parent or neighbor nodes of the node
+to be completed.  During compilation, QUERY is parsed using
+`lilypond-ts--treesit-query-depths' to determine the minimum and maximum depth
+of capture groups.  `lilypond-ts--treesit-capf' runs queries using
+`lilypond-ts--treesit-query-parents'.
+
+MASKS should be a list, where each element MASK is a list describing a single
+valid configuration of completion candidates for the nodes captured by QUERY.
+Nodes other than the node at point are checked against the corresponding
+elements of each MASK.  If they all match, then this is a valid configuration of
+words, and completion candidates are retrieved from the MASK element that lines
+up with the node at point.
+
+This allows for efficiently narrowing completion candidates based on semantic
+context.  For example, Context.GrobName and GrobName.grob-property are valid
+configurations of a LilyPond property expression, while GrobName.Context is not,
+even though its parse tree is structurally identical. In this case, the QUERY
+would match the parse tree configuration without filtering using :match or
+:pred.  MASKS would include (context grob) and (grob grob-property) but not
+(grob context).  Rules structured in this way are agnostic to which node is
+being completed.
+
+Usually, the elements of a MASK should be symbols representing keyword
+categories.  In that case, they are matched against neighbor nodes using
+`lilypond-ts--treesit-capf-default-matcher', and provide completions for the
+node at point using `lilypond-ts--treesit-capf-default-make-table'.  Most
+simply, imagine that each symbol is the key for an alist in which the values are
+lists of words.
+
+MASK elements can also be a string or list of strings, in which case the
+string(s) are the completion candidates and neighbor nodes are matches literally
+against them.
+
+Lastly, MASK elements can be nil, in which case neighboring nodes always match,
+and completion candidates are empty.
+
+POST-PROC is an optional function that is applied to the final completion
+table.  This is the place to employ `completion-table-subvert'.  Note, however,
+that in most cases it is more practical to instead use
+`lilypond-ts--capf-post-process-alist' to associate post-process functions with
+the type of the node at point.
+
+Rules should be ordered from most specific to most general, as only the first
+QUERY to match is used.  Completion candidates are used from every matching MASK
+with that rule.  If QUERY could match the node at point in multiple possible
+capture groups, only the first will be used."
   (cl-loop
    for (language . rules) in capf-rules
    collect (cons
@@ -220,7 +298,11 @@ the final combined completion table.  This is a good place to apply
 (defvar lilypond-ts--capf-post-process-alist
   `((lilypond
      ("escaped_word" . ,(lambda (table)
-                          (completion-table-subvert table "\\" ""))))))
+                          (completion-table-subvert table "\\" "")))))
+  "Alist mapping `treesit' language -> node type -> completion table wrapper.
+
+Used by `lilypond-ts--treesit-capf' to, for example, apply an appropriate
+`completion-table-subvert' based the type of node being completed.")
 
 (defvar lilypond-ts--capf-rules
   `((lilypond

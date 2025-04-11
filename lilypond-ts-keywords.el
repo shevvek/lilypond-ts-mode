@@ -20,6 +20,11 @@
 ;; Retrieve and update keyword lists via the Geiser LilyPond REPL, for font lock
 ;; and completion.
 
+;; The only aspect of this design that isn't fully generic is the :scm property
+;; and the update code's assumption that lazy keyword list updates are performed
+;; via Geiser.  If that aspect were abstracted into a generic API for lazy
+;; keyword updates via pluggable code, this would be fully generic.
+
 ;;; Code:
 
 (require 'lilypond-ts-base)

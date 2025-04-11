@@ -139,6 +139,8 @@ that allow nesting."
       :company-kind enum-member)
     ( repeats ("unfold" "tremolo" "volta" "segno" "percent")
       :company-kind enum-member)
+    ( units ("pt" "bp" "mm" "cm" "in")
+      :company-kind unit)
     ( pitch-languages nil
       :needs-update t
       :scm (map car language-pitch-names)

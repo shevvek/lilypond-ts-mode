@@ -9,6 +9,9 @@ music = \relative {
 %% <- nil
 %%      ^ font-lock-keyword-face
 %%               ^ nil
+  \clef bass
+%%^ lilypond-ts-font-lock-identifier-face
+%%      ^ font-lock-constant-face
   \time 4/4
 %%^ font-lock-keyword-face
 %%      ^ font-lock-number-face

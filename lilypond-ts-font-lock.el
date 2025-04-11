@@ -244,6 +244,16 @@ exactly (not counting the suffix `!')."
      :feature comment
      ((comment) @font-lock-comment-face)
 
+     :feature warning
+     :override t
+     ((scheme_list (comment) @font-lock-warning-face)
+      (scheme_quote (comment) @font-lock-warning-face)
+      (scheme_quasiquote (comment) @font-lock-warning-face)
+      (scheme_unquote (comment) @font-lock-warning-face)
+      (scheme_unquote_splicing (comment) @font-lock-warning-face)
+      (scheme_vector (comment) @font-lock-warning-face)
+      (scheme_byte_vector (comment) @font-lock-warning-face))
+
      :feature string
      ((string) @font-lock-string-face)
 
@@ -263,10 +273,21 @@ exactly (not counting the suffix `!')."
        (:pred ,(lilypond-ts--keyword-node-predicate 'grobs)
               @font-lock-type-face)))
 
+     :feature enums
+     (((symbol) @font-lock-constant-face
+       (:pred ,(lilypond-ts--keyword-node-predicate 'repeats
+                                                    'pitch-languages
+                                                    'clefs)
+              @font-lock-constant-face))
+      ((escaped_word) @font-lock-builtin-face
+       (:pred ,(lilypond-ts--keyword-node-predicate 'units)
+              @font-lock-builtin-face)))
+
      :feature properties
      (((symbol) @font-lock-property-face
        (:match ,(lilypond-ts--keyword-node-predicate 'translation-properties
-                                                     'grob-properties)
+                                                     'grob-properties
+                                                     'paper-variables)
                @font-lock-property-face))
       ((property_expression (symbol) @font-lock-property-face)))
 
@@ -359,7 +380,7 @@ exactly (not counting the suffix `!')."
       scheme-keys scheme-defuns scheme-let scheme-objects)
     ( keyword expression object markup
       scheme-words)
-    ( number phrasing texinfo
+    ( number phrasing texinfo warning enums
       scheme-constants scheme-numbers scheme-fluids)
     ( punctuation properties
       scheme-predicates scheme-side-effects scheme-punctuation)))

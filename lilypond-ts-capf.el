@@ -175,9 +175,10 @@ the final combined completion table.  This is a good place to apply
 `lilypond-ts--capf-properties' is appended to the capf return value."
   (cl-loop
    with node = (treesit-node-on (1- (point)) (point))
+   with language = (treesit-language-at (point))
    for (rule-name query (min-depth . max-depth) masks post-process)
-   in (cdr (assq (treesit-language-at (point))
-                 lilypond-ts--treesit-capf-rules))
+   ;; implicitly this handles the case where there is no treesit parser
+   in (cdr (assq language lilypond-ts--treesit-capf-rules))
    for captures = (lilypond-ts--treesit-isolate-capture-group
                    node (lilypond-ts--treesit-query-parents node query
                                                             min-depth max-depth))
@@ -187,7 +188,6 @@ the final combined completion table.  This is a good place to apply
             for words = (cl-loop
                          ;; In practice, the most common case should be mask
                          ;; and captures of equal length => only one step.
-                         ;; query-pred should strive to return minimal nodes.
                          for tail on captures until (> (length mask)
                                                        (length tail))
                          thereis (cl-loop
@@ -202,14 +202,25 @@ the final combined completion table.  This is a good place to apply
                                   else do (setf home make-table) end
                                   finally return (apply home friends)))
             when words collect words into tables
-            finally return `(,(treesit-node-start node)
-                             ,(treesit-node-end node)
-                             ,(funcall (or post-process #'identity)
-                                       (apply #'completion-table-merge
-                                              tables))
-                             . ,lilypond-ts--capf-properties))))
+            finally return
+            `(,(treesit-node-start node)
+              ,(treesit-node-end node)
+              ,(funcall (or post-process
+                            (cdr (cl-assoc
+                                  node
+                                  (cdr (assq language
+                                             lilypond-ts--capf-post-process-alist))
+                                  :test #'treesit-node-match-p))
+                            #'identity)
+                        (apply #'completion-table-merge tables))
+              . ,lilypond-ts--capf-properties))))
 
 ;;; LilyPond specific configuration begins here:
+
+(defvar lilypond-ts--capf-post-process-alist
+  `((lilypond
+     ("escaped_word" . ,(lambda (table)
+                          (completion-table-subvert table "\\" ""))))))
 
 (defvar lilypond-ts--capf-rules
   `((lilypond
@@ -222,9 +233,7 @@ the final combined completion table.  This is a good place to apply
        (markup-functions)
        (context-defs)
        (context-mods)
-       (output-defs))
-      ,(lambda (table)
-         (completion-table-subvert table "\\" "")))
+       (output-defs)))
 
      ("escaped_word symbol"
       (((escaped_word) @0

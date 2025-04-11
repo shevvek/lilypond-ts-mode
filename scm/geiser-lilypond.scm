@@ -32,6 +32,7 @@
 (define-private gdoc (resolve-module '(geiser doc)))
 
 (ly:load "document-identifiers")
+(ly:load "define-paper-variables")
 
 (define (ly:primitive-args proc)
   (and-let* (((program? proc))
@@ -48,12 +49,10 @@
              (rest-count (if (assq-ref arities 'rest) 1 0))
              ((= (length arg-names)
                  (+ req-count opt-count kw-count rest-count))))
-    (let*-values
-        (((req-args rest) (split-at arg-names req-count))
-         ((opt-args rest) (split-at rest opt-count))
-         ((kw-args rest) (split-at rest kw-count))
-         ((rest) (and (pair? rest) (car rest)))
-         )
+    (let*-values (((req-args rest) (split-at arg-names req-count))
+                  ((opt-args rest) (split-at rest opt-count))
+                  ((kw-args rest) (split-at rest kw-count))
+                  ((rest) (and (pair? rest) (car rest))))
       `(((required . ,req-args)
          (optional . ,opt-args)
          (keyword . ,kw-args)

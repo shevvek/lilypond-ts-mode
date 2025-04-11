@@ -292,6 +292,18 @@ the final combined completion table.  This is a good place to apply
        (contexts translation-properties)
        (music-types music-properties)))
 
+     ("paper-block"
+      ((((escaped_word) @paper :anchor
+         (:match "^\\\\paper$" @paper))
+        (expression_block [(symbol) @prop
+                           (property_expression :anchor (symbol) @prop)
+                           (property_expression
+                            (property_expression :anchor (symbol) @prop))
+                           (property_expression
+                            (property_expression
+                             (property_expression :anchor (symbol) @prop)))])))
+      ((nil paper-variables)))
+
      ("symbol"
       ((symbol) @0)
       ;; as a fallback, only suggest completions that start with capital letters

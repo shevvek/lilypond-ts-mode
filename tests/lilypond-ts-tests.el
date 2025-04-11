@@ -142,6 +142,9 @@ strings."
 (ert-deftest lilypond-ts-test--scheme-mode-capf ()
   (lilypond-ts--capf-test
    ("(tra" ")") ("transpose-array" "transpose") nil t))
+(ert-deftest lilypond-ts-test--paper-capf ()
+  (lilypond-ts--capf-test
+   ("\\paper{\n  s" "}") "system-system-spacing" "staccato"))
 
 ;;; Autodoc
 

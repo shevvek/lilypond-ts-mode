@@ -268,6 +268,11 @@ that allow nesting."
       :scm all-music-properties
       :wrap-element symbol-name
       :company-kind field)
+    ( paper-variables nil
+      :needs-update t
+      :scm (map car all-paper-variable-descriptions)
+      :wrap-element symbol-name
+      :company-kind variable)
     ( scheme-identifiers nil
       :needs-update t
       :scm (:ge completions "")

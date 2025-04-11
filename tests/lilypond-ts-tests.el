@@ -67,13 +67,15 @@
                      (nth 2 data)
                      (plist-get (nthcdr 3 data) :predicate))))
 
-(defmacro lilypond-ts--capf-test (text yes &optional no)
+(defmacro lilypond-ts--capf-test (text yes &optional no scheme-p)
   "Insert TEXT in a temporary buffer, then check that `lilypond-ts-mode'
 completions include YES and do not include NO. TEXT may be either a string or a
 list (BEFORE-POINT AFTER-POINT). YES and NO may be either strings or lists of
 strings."
   `(with-temp-buffer
-     (lilypond-ts-mode)
+     (if ,scheme-p
+         (lilypond-ts-scheme-mode)
+       (lilypond-ts-mode))
      (insert ,(if (stringp text) text (car text)))
      ,(when (listp text)
         `(save-excursion (insert ,(cadr text))))
@@ -134,9 +136,12 @@ strings."
 (ert-deftest lilypond-ts-test--grob-capf ()
   (lilypond-ts--capf-test
    "Voice.N" "NoteHead" "Note_heads_engraver"))
-(ert-deftest lilypond-ts-test--scheme-capf ()
+(ert-deftest lilypond-ts-test--embedded-scheme-capf ()
   (lilypond-ts--capf-test
    ("#(tra" ")") ("transpose-array" "transpose")))
+(ert-deftest lilypond-ts-test--scheme-mode-capf ()
+  (lilypond-ts--capf-test
+   ("(tra" ")") ("transpose-array" "transpose") nil t))
 
 ;;; Autodoc
 

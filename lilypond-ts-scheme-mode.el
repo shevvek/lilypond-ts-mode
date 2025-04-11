@@ -91,9 +91,9 @@
     ;; (setq-local treesit--font-lock-verbose t)
     ;; (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
     (treesit-major-mode-setup)
-    ;; to do: set comment-use-syntax
     (setq-local syntax-propertize-function
                 #'lilypond-ts-scheme--propertize-syntax)
+    (lilypond-ts-capf-mode 1)
     (lilypond-ts-autodoc-mode 1)))
 
 (derived-mode-set-parent 'lilypond-ts-scheme-mode 'scheme-mode)

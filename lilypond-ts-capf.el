@@ -307,6 +307,14 @@ the final combined completion table.  This is a good place to apply
 
      ("string_fragment"
       ((string_fragment) @0)
+      ((filename))))
+    (lilypond-scheme
+     ("scheme_symbol"
+      ((scheme_symbol) @0)
+      ((scheme-identifiers)))
+
+     ("string_fragment"
+      ((scheme_string_fragment) @0)
       ((filename))))))
 
 (define-minor-mode lilypond-ts-capf-mode

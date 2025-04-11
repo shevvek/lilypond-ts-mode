@@ -78,42 +78,71 @@ all properties in KEYS."
     (fset name l)
     name))
 
-(defun lilypond-ts--treesit-capture-neighborhood (query before after
-                                                        capture-count thing)
-  "Make a predicate of a single argument NODE, that returns non-nil if it
-matches a node captured by `treesit' QUERY in the smallest subtree spanning
-BEFORE and AFTER THING nodes on either side of NODE."
-  (lambda (node)
-    (when-let*
-        ((this-start (treesit-node-start node))
-         (this-end (treesit-node-end node))
-         (left-neighbor (or (treesit-navigate-thing (treesit-node-start node)
-                                                    (- before) 'beg thing)
-                            this-start))
-         (right-neighbor (or (treesit-navigate-thing (treesit-node-end node)
-                                                     after 'end thing)
-                             this-end))
-         (common-parent (treesit-node-on left-neighbor right-neighbor))
-         (captures (treesit-query-capture common-parent query
-                                          left-neighbor right-neighbor))
-         (index (cl-position node captures
-                             :key #'cdr :test #'treesit-node-eq))
-         (offset (string-to-number
-                  (symbol-name (car (elt captures index)))))
-         (start-index (- index offset)))
-      (seq-subseq captures start-index (+ start-index capture-count)))))
-
 (defun lilypond-ts--treesit-query-parents (node query &optional
                                                 start-depth end-depth)
+  "Try QUERY on NODE's START-DEPTH to END-DEPTH parents until the first success."
   (cl-loop repeat (if end-depth
-                      (1+ (- end-depth start-depth))
+                      (max 1 (- end-depth (or start-depth 0)))
                     max-lisp-eval-depth)
            for n = (if start-depth
-                       (treesit-node-get node '((parent start-depth)))
+                       (treesit-node-get node `((parent ,start-depth)))
                      node)
            then (treesit-node-parent n)
            always n
            thereis (treesit-query-capture n query)))
+
+(defun lilypond-ts--treesit-isolate-capture-group (node captures)
+  "Return the nodes of the first capture group containing NODE in CAPTURES.
+
+Capture groups are distinguished by repetition of capture names."
+  (cl-loop with found-node = nil
+           for (capture-name . capture-node) in captures
+           when (treesit-node-eq node capture-node) do (setf found-node t)
+           when (memq capture-name names) if found-node return group
+           else do (setf group nil) and do (setf names nil)
+           collect capture-name into names
+           collect capture-node into group
+           finally return (and found-node group)))
+
+(defun lilypond-ts--treesit-query-depths (query-sexp)
+  "Return as a pair the min and max depth of captures in `treesit' QUERY-SEXP."
+  (named-let parse-query ((query query-sexp)
+                          (depth -1))
+    ;; Start by iterating, since all queries are lists of patterns.
+    (cl-loop with implicit-parent = 0
+             for child being the elements of query
+             for depths = (pcase child
+                            ((and (cl-type symbol)
+                                  (app symbol-name (rx "@" (+ anything))))
+                             (cons depth depth))
+                            ;; No need to recurse into atomic nodes.
+                            (`(,(cl-type symbol))
+                             nil)
+                            ;; Ignore captures inside predicate clauses.
+                            (`(,(or :match :pred :equal) . ,_)
+                             nil)
+                            ((or (cl-type vector)
+                                 `(,head . ,_))
+                             ;; Only increment depth if this nesting is a node.
+                             ;; Initial depth = -1 is only so we don't add an
+                             ;; implicit parent shared by top level patterns.
+                             (parse-query child (if (and head
+                                                         (symbolp head)
+                                                         (not (keywordp head)))
+                                                    (1+ (max 0 depth))
+                                                  (max 0 depth)))))
+             ;; If depth = 0 and there are multiple branches with captures, then
+             ;; the branches implicitly share (_) as a parent.
+             when (and depths min-depth (= 0 depth) (= 0 implicit-parent))
+             do (setq implicit-parent 1)
+             when depths
+             minimize (car depths) into min-depth
+             and maximize (cdr depths) into max-depth
+             finally return (and min-depth
+                                 ;; This also takes care of the shorthand case
+                                 ;; of captures as top-level query elements
+                                 (cons (max implicit-parent min-depth)
+                                       (max implicit-parent max-depth))))))
 
 (provide 'lilypond-ts-utils)
 ;;; lilypond-ts-utils.el ends here

@@ -60,11 +60,6 @@
 
 ;;; Capf
 
-(defun lilypond-ts-test--capf-test-setup ()
-  (make-local-variable 'lilypond-ts--treesit-capf-rules)
-  (make-local-variable 'lilypond-ts--keywords)
-  (lilypond-ts-mode))
-
 ;; based on elisp--test-completions
 (defun lilypond-ts-test--list-completions ()
   (let ((data (lilypond-ts--treesit-capf)))
@@ -78,7 +73,7 @@ completions include YES and do not include NO. TEXT may be either a string or a
 list (BEFORE-POINT AFTER-POINT). YES and NO may be either strings or lists of
 strings."
   `(with-temp-buffer
-     (lilypond-ts-test--capf-test-setup)
+     (lilypond-ts-mode)
      (insert ,(if (stringp text) text (car text)))
      ,(when (listp text)
         `(save-excursion (insert ,(cadr text))))

@@ -83,7 +83,7 @@ of Lilypond."
                                            "scheme_program"))))
 
 (defun lilypond-ts--scheme-at-p (&optional pos)
-  (let ((node (treesit-node-at (or pos (point)) nil t)))
+  (let ((node (treesit-node-on (or pos (point)) (or pos (point)) nil t)))
     (and (treesit-node-match-p node "scheme")
          (not (treesit-node-match-p node (regexp-opt
                                           '("scheme_embedded_lilypond"

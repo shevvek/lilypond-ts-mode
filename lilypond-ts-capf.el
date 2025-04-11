@@ -407,7 +407,7 @@ Used by `lilypond-ts--treesit-capf' to, for example, apply an appropriate
        (grob-interfaces)))
 
      ("string_fragment"
-      ((string_fragment) @0)
+      ([(string_fragment) (scheme_string_fragment)] @0)
       ((filename))))
     (lilypond-scheme
      ("scheme_symbol"

@@ -3,7 +3,7 @@
 ;; Copyright (c) 2025 Saul James Tobin
 
 ;; Author: Saul James Tobin
-;; Version: 0.2-alpha
+;; Version: 0.3-alpha
 ;; Package-Requires: ((geiser "0.31.1") (geiser-guile "0.28.2") (emacs "30.1"))
 ;; Keywords: languages, tools, scheme, lilypond, geiser, lisp
 ;; URL: https://github.com/shevvek/lilypond-ts-mode
@@ -33,6 +33,10 @@
 ;; and interactive evaluation.
 ;; * Rhythmic navigation minor mode: easily edit the same beat across all parts.
 
+;; This package also provides `lilypond-ts-scheme-mode', for editing LilyPond
+;; Scheme files with support for embedded LilyPond code and most features from
+;; `lilypond-ts-mode'.
+
 ;;; Code:
 
 (require 'lilypond-ts-common)
@@ -51,6 +55,16 @@
 
 ;;;###autoload
 (define-derived-mode lilypond-ts-mode lilypond-ts-common-mode "LilyPond"
+  "A modern `treesit' major mode for editing GNU LilyPond files.
+
+Features include:
+
+* Tight LilyPond REPL integration via `geiser'
+* \"vertical\" rhythm-aware navigation
+* Support for nested Scheme and LilyPond embeddings
+* Context-aware completion and autodoc
+* Automatic LilyPond version detection and selection, and modular argument sets
+* Master file redirection when compiling with LilyPond"
   :group 'lilypond-ts
   (when (treesit-ready-p 'lilypond)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond))

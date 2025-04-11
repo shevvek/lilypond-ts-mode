@@ -5,7 +5,9 @@ This package provides `lilypond-ts-mode`, an Emacs major mode for [GNU LilyPond]
 
 `lilypond-ts-mode` is intended as a modern replacement for `lilypond-mode`.
 
-Currently this package is in alpha.
+This package also provides `lilypond-ts-scheme-mode`, a `scheme-mode` alternative sharing most features with `lilypond-ts-mode`, most importantly support for embedded LilyPond code.
+
+Currently this package is in alpha. First beta release hopefully coming very soon.
 
 Contributions and bug reports are very welcome.
 
@@ -21,6 +23,7 @@ Contributions and bug reports are very welcome.
 * Parser-based structured navigation (symbol, list, sexp, defun) and imenu.
 * Parser based font-lock for LilyPond code and embedded Scheme.
 * Keyword lists for font lock and auto-completion populated at runtime by LilyPond itself, not hard-coded.
+* `lilypond-ts-scheme-mode`, for editing LilyPond Scheme files.
 
 ## Prerequisites
 * Emacs 30.1+ with `treesit` enabled. (Due to continuing active development of `treesit`, it is likely that `lilypond-ts-mode` will require the latest Emacs release, at least until the next Emacs major version release.)
@@ -40,6 +43,13 @@ Contributions and bug reports are very welcome.
    (add-to-list 'load-path <local repo location>)
    (require 'lilypond-ts-mode)
    ```
+4. (Optional) `lilypond-ts-scheme-mode` is not enabled by default, since it is likely mainly of use to LilyPond developers. To use it, add to your `init.el`:
+   ```
+   (require 'lilypond-ts-scheme-mode)
+   (add-to-list 'auto-mode-alist
+                '("\\.scm\\'" . lilypond-ts-scheme-mode))
+   ```
+   `lilypond-ts-scheme-mode` does not automatically add itself to `auto-mode-alist`, in order to avoid getting in the way for users who also work with non-LilyPond .scm files.
 
 ## Customization
 If you have LilyPond installed in a non-standard directory, add it to `lilypond-ts-search-path`, then refresh LilyPond installs. By default, `lilypond-ts-mode` won't search for new LilyPond installations on startup unless the cached list of installs is empty.

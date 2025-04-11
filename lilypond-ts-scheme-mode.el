@@ -58,7 +58,10 @@
 
 ;;;###autoload
 (define-derived-mode lilypond-ts-scheme-mode lilypond-ts-common-mode
-  "LilyPond Scheme"
+  "A `treesit' major mode for editing GNU LilyPond Scheme files.
+
+Most features are shared with `lilypond-ts-mode'. Full support for embedded
+LilyPond code, including nested embeddings."
   :group 'lilypond-ts-scheme
   (when (and (treesit-ready-p 'lilypond-scheme)
              (treesit-ready-p 'lilypond))

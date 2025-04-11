@@ -78,6 +78,13 @@ all properties in KEYS."
     (fset name l)
     name))
 
+;; Probably this exists in dash.el or something...
+(defsubst lilypond-ts--map-squared (fun seq)
+  "Map FUN over the elements of the elements of SEQ."
+  (mapcar (lambda (l)
+            (mapcar fun l))
+          seq))
+
 (defun lilypond-ts--treesit-query-parents (node query &optional
                                                 start-depth end-depth)
   "Try QUERY on NODE's START-DEPTH to END-DEPTH parents until the first success."

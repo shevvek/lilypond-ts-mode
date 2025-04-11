@@ -117,11 +117,6 @@ of simply populating the completion table with all words in the category."
                        (ensure-list key))))))
    (t (byte-compile (funcall lilypond-ts--treesit-capf-default-make-table key)))))
 
-(defsubst lilypond-ts--map-squared (fun seq)
-  (mapcar (lambda (l)
-            (mapcar fun l))
-          seq))
-
 (defun lilypond-ts--treesit-capf-setup (capf-rules)
   "Compile CAPF-RULES into a form usable by `lilypond-ts--treesit-capf'.
 

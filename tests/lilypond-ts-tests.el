@@ -138,10 +138,10 @@ strings."
    "Voice.N" "NoteHead" "Note_heads_engraver"))
 (ert-deftest lilypond-ts-test--embedded-scheme-capf ()
   (lilypond-ts--capf-test
-   ("#(tra" ")") ("transpose-array" "transpose")))
+   ("#(tra" ")") ("transpose-array" "transpose" "translate-stencil")))
 (ert-deftest lilypond-ts-test--scheme-mode-capf ()
   (lilypond-ts--capf-test
-   ("(tra" ")") ("transpose-array" "transpose") nil t))
+   ("(tra" ")") ("transpose-array" "transpose" "translate-stencil" ) nil t))
 (ert-deftest lilypond-ts-test--paper-capf ()
   (lilypond-ts--capf-test
    ("\\paper{\n  s" "}") "system-system-spacing" "staccato"))

@@ -315,7 +315,19 @@ the final combined completion table.  This is a good place to apply
 
      ("scheme_symbol"
       ((scheme_symbol) @0)
-      ((scheme-identifiers)))
+      ((scheme-identifiers)
+       (grobs)
+       (contexts)
+       (translators)
+       (output-defs)
+       (paper-variables)
+       (grob-properties)
+       (translation-properties)
+       (music-types)
+       (music-properties)
+       (event-classes)
+       (stencil-commands)
+       (grob-interfaces)))
 
      ("string_fragment"
       ((string_fragment) @0)
@@ -323,7 +335,19 @@ the final combined completion table.  This is a good place to apply
     (lilypond-scheme
      ("scheme_symbol"
       ((scheme_symbol) @0)
-      ((scheme-identifiers)))
+      ((scheme-identifiers)
+       (grobs)
+       (contexts)
+       (translators)
+       (output-defs)
+       (paper-variables)
+       (grob-properties)
+       (translation-properties)
+       (music-types)
+       (music-properties)
+       (event-classes)
+       (stencil-commands)
+       (grob-interfaces)))
 
      ("string_fragment"
       ((scheme_string_fragment) @0)

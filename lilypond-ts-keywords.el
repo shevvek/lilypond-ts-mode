@@ -279,6 +279,21 @@ that allow nesting."
       :wrap-element identity
       :company-kind t
       :match-function always)
+    ( grob-interfaces nil
+      :needs-update t
+      :scm (sort (map car (hash-table->alist (ly:all-grob-interfaces))))
+      :wrap-element symbol-name
+      :company-kind interface)
+    ( event-classes nil
+      :needs-update t
+      :scm (map car (@@ (lily) all-event-classes))
+      :wrap-element symbol-name
+      :company-kind event)
+    ( stencil-commands nil
+      :needs-update t
+      :scm (ly:all-stencil-expressions)
+      :wrap-element symbol-name
+      :company-kind command)
     ( scheme-modules nil
       :needs-update t
       :scm (:ge module-completions "")

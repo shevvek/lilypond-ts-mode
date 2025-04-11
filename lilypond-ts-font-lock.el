@@ -174,7 +174,18 @@ exactly (not counting the suffix `!')."
      ([(scheme_boolean) (scheme_character)] @font-lock-constant-face)
 
      :feature scheme-numbers
-     ((scheme_number) @font-lock-number-face)))
+     ((scheme_number) @font-lock-number-face)
+
+     :feature catch-all
+     ;; This is to prevent lilypond font lock rules from fontifying comments or
+     ;; slurs out of bounds.  Probably there are no other conflicting cases?
+     ;; Really this is probably something to be fixed upstream.  The embedded
+     ;; parser should be allowed to look at, but not touch out of bounds nodes.
+     ;; Or maybe there's some subtle issue in how I set up the ranges.
+     ((scheme_symbol) @default
+      (scheme_list ["(" ")"] @default)
+      (scheme_byte_vector [")"] @default)
+      (scheme_vector [")"] @default))))
 
 (defface lilypond-ts-font-lock-context-face
   '((t :inherit (bold font-lock-type-face)))
@@ -373,10 +384,13 @@ exactly (not counting the suffix `!')."
      ;; it looks weird to have ## in different colors
      (((embedded_scheme_prefix) @font-lock-constant-face
        :anchor
-       (_) @_ (:match "^#" @_)))))
+       (_) @_ (:match "^#" @_)))
+
+     :feature catch-all
+     (_ @default)))
 
 (defvar lilypond-ts--font-lock-features
-  '(( comment string escaped-word
+  '(( comment string escaped-word catch-all
       scheme-keys scheme-defuns scheme-let scheme-objects)
     ( keyword expression object markup
       scheme-words)

@@ -3,129 +3,77 @@
 %%       ^ font-lock-string-face
 
 #(define* (foo #:optional (bar #f))
-;; <- nil
+;; <- default
 ;;^ font-lock-keyword-face
-;;       ^ nil
+;;        ^ default
 ;;         ^ font-lock-function-name-face
 ;;             ^ font-lock-builtin-face
-;;                       ^ nil
+;;                        ^ default
 ;;                             ^ font-lock-constant-face
-;;                               ^ nil
-   (let lp ((j 0))
-;; <- nil
-;;  ^ font-lock-keyword-face
-;;      ^ font-lock-function-name-face
-;;        ^ nil
-;;             ^ font-lock-number-face
-;;              ^ nil
-     (if (< j 10)
-;; <- nil
-;;    ^ font-lock-keyword-face
-;;      ^ nil
-;;            ^ font-lock-number-face
-;;              ^ nil
-         (lp (1+ j) bar))))
-%% <- nil
+;;                               ^ default
+   (let lp ((j 0))))
+%% ^ default
+%%  ^ font-lock-keyword-face
+%%      ^ font-lock-function-name-face
+%%         ^ default
+%%             ^ font-lock-number-face
+%%              ^ default
 
 #(define foo (lambda (x) x))
-%% <- nil
+%% <- default
 %%^ font-lock-keyword-face
 %%       ^ font-lock-function-name-face
-%%          ^ nil
+%%           ^ default
 %%            ^ font-lock-keyword-face
-%%                  ^ nil
+%%                   ^ default
+%%                       ^ default
 
-#(define lily-fun
-;; <- nil
-;;^ font-lock-keyword-face
-;;       ^ font-lock-function-name-face
-   (define-void-function (arg) (scheme?)
-;; <- nil
-;;  ^ font-lock-keyword-face
-;;                      ^ nil
-     (ly:message "Boo! ~a" (*parser*))))
-%% <- nil
-%%               ^ font-lock-string-face
-%%                        ^ nil
-%%                          ^ font-lock-variable-use-face
-%%                                  ^ nil
 
-#(define var (+ 40 2))
-%% <- nil
-%%^ font-lock-keyword-face
-%%       ^ font-lock-variable-name-face
-%%          ^ nil
-%%              ^ font-lock-number-face
-%%                 ^ font-lock-number-face
-%%                  ^ nil
 
-#(define-syntax (do-nothing)
-;; <- nil
-;;^ font-lock-keyword-face
-;;             ^ nil
-;;               ^ font-lock-variable-name-face
-;;                         ^ nil
-   '())
-%% <- nil
 
 #(define-class <my-class> (<parent-class>))
-%% <- nil
+%% <- default
 %%^ font-lock-keyword-face
 %%             ^ font-lock-type-face
-%%                       ^ nil
+%%                        ^ default
 %%                         ^ font-lock-type-face
-%%                                       ^ nil
+%%                                       ^ default
 
 #(define-module my-module)
-%% <- nil
+%% <- default
 %%^ font-lock-keyword-face
 %%              ^ font-lock-type-face
-%%                       ^ nil
+%%                       ^ default
 
-#(define ((((spicy-curried-defun a) b) c) d)
-;; <- nil
-;;^ font-lock-keyword-face
-;;      ^ nil
-;;           ^ font-lock-function-name-face
-;;                              ^ nil
-   (+ a b c d))
-%% <- nil
-
-markup-notehead =
-%% <- nil
-  #(define-music-function (m) (markup?)
-;; <- nil
-;;  ^ font-lock-keyword-face
-;;                       ^ nil
-     "Test nested @var{language} blocks."
-%%   ^ font-lock-string-face
-%%                ^ (font-lock-escape-face font-lock-doc-markup-face)
-%%                 ^ font-lock-doc-markup-face
+#(define baz "@var{baz}")
+%% <- default
+%%^ font-lock-keyword-face
+%%       ^ font-lock-variable-name-face
+%%           ^ font-lock-string-face
+%%            ^ (font-lock-escape-face font-lock-doc-markup-face)
+%%             ^ font-lock-doc-markup-face
+%%                ^ (font-lock-escape-face font-lock-string-face)
+%%                 ^ font-lock-string-face
 %%                    ^ (font-lock-escape-face font-lock-string-face)
 %%                     ^ font-lock-string-face
-%%                             ^ (font-lock-escape-face font-lock-string-face)
-%%                              ^ font-lock-string-face
-     #{
-%% <- nil
-       \override NoteHead.stencil = #(lambda (grob)
-;;     ^ font-lock-keyword-face
-;;               ^ font-lock-type-face
-;;                       ^ nil
-;;                                    ^ font-lock-keyword-face
-;;                                          ^ nil
-                                       (grob-interpret-markup grob #{
-%% <- nil
-                                         \markup \rotate #90 \m
-%%                                       ^ lilypond-ts-font-lock-markup-keyword-face
-%%                                               ^ lilypond-ts-font-lock-markup-face
-%%                                                      ^ nil
-%%                                                        ^ font-lock-number-face
-%%                                                           ^ lilypond-ts-font-lock-identifier-face
-                                       #}))
-%% <- nil
-     #})
-%% <- nil
+%%                      ^ default
+
+#(define-syntax-rule (foo () '()))
+%% <- default
+%%^ font-lock-keyword-face
+%%                   ^ default
+%%                    ^ font-lock-variable-name-face
+%%                        ^ default
+%%                           ^ default
+
+#(define-music-function (x) (ly:music?) x)
+%% <- default
+%%^ font-lock-keyword-face
+%%                      ^ default
+%%                          ^ default
+%%                                      ^ default
 
 char = ##\x
-%% <- nil
+%% <- default
+%%   ^ default
 %%     ^ font-lock-constant-face

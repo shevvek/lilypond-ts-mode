@@ -6,9 +6,10 @@
 %%        ^ font-lock-string-face
 
 music = \relative {
-%% <- nil
+%% <- default
+%%    ^ default
 %%      ^ font-lock-keyword-face
-%%               ^ nil
+%%                ^ default
   \clef bass
 %%^ lilypond-ts-font-lock-identifier-face
 %%      ^ font-lock-constant-face
@@ -17,45 +18,47 @@ music = \relative {
 %%      ^ font-lock-number-face
   \key a \minor
 %%^ lilypond-ts-font-lock-identifier-face
-%%    ^ nil
+%%     ^ default
 %%       ^ lilypond-ts-font-lock-identifier-face
   \tempo "Allegro" 4=90
 %%^ font-lock-keyword-face
 %%       ^ font-lock-string-face
 %%                 ^ lilypond-ts-font-lock-duration-face
-%%                  ^ nil
+%%                  ^ default
 %%                   ^ lilypond-ts-font-lock-duration-face
   c'4\mp\< d-! e\0 f_> |
-%% <- nil
+%%^ default
 %%  ^ lilypond-ts-font-lock-duration-face
 %%   ^ lilypond-ts-font-lock-event-face
 %%      ^ lilypond-ts-font-lock-articulation-face
-%%        ^ nil
+%%         ^ default
 %%          ^ lilypond-ts-font-lock-articulation-face
-%%            ^ nil
+%%             ^ default
 %%              ^ font-lock-number-face
-%%                ^ nil
+%%                 ^ default
 %%                  ^ lilypond-ts-font-lock-articulation-face
-%%                    ^ nil
+%%                     ^ default
   e\(\> d^> c b\)\! |
-%% <- nil
+%%^ default
 %% ^ lilypond-ts-font-lock-phrasing-slur-face
 %%   ^ lilypond-ts-font-lock-articulation-face
-%%     ^ nil
+%%      ^ default
 %%       ^ lilypond-ts-font-lock-articulation-face
-%%         ^ nil
+%%          ^ default
+%%            ^ default
 %%             ^ lilypond-ts-font-lock-phrasing-slur-face
 %%               ^ lilypond-ts-font-lock-articulation-face
-%%                 ^ nil
+%%                  ^ default
   \once\override Voice.NoteHead.stencil = ##f
 %%^ font-lock-keyword-face
 %%               ^ lilypond-ts-font-lock-context-face
-%%                    ^ nil
+%%                    ^ default
 %%                     ^ font-lock-type-face
-%%                             ^ nil
+%%                             ^ default
+%%                                      ^ default
 %%                                        ^ font-lock-constant-face
   a4[\startTextSpan 4\^ 4~\stopTextSpan 4:32 |
-%% <- nil
+%%^ default
 %% ^ lilypond-ts-font-lock-duration-face
 %%  ^ lilypond-ts-font-lock-beam-face
 %%   ^ lilypond-ts-font-lock-event-face
@@ -66,82 +69,87 @@ music = \relative {
 %%                        ^ lilypond-ts-font-lock-event-face
 %%                                      ^ lilypond-ts-font-lock-duration-face
 %%                                       ^ lilypond-ts-font-lock-event-face
-%%                                          ^ nil
+%%                                           ^ default
   <c e>2^"div." <c' e,>^\markup\italic { unisono }
-%% <- nil
+%%^ default
 %%     ^ lilypond-ts-font-lock-duration-face
-%%      ^ nil
+%%      ^ default
 %%       ^ font-lock-string-face
-%%             ^ nil
+%%              ^ default
 %%                      ^ lilypond-ts-font-lock-markup-keyword-face
 %%                             ^ lilypond-ts-font-lock-markup-face
-%%                                    ^ nil
+%%                                     ^ default
   d8(\=2 c[) b a?] gs!2\trill |
-%% <- nil
+%%^ default
 %% ^ lilypond-ts-font-lock-duration-face
 %%  ^ lilypond-ts-font-lock-slur-face
 %%   ^ font-lock-keyword-face
 %%     ^ font-lock-number-face
-%%      ^ nil
+%%       ^ default
 %%        ^ lilypond-ts-font-lock-beam-face
 %%         ^ lilypond-ts-font-lock-slur-face
-%%          ^ nil
+%%           ^ default
+%%             ^ default
 %%               ^ lilypond-ts-font-lock-beam-face
-%%                ^ nil
+%%                 ^ default
 %%                    ^ lilypond-ts-font-lock-duration-face
 %%                     ^ lilypond-ts-font-lock-event-face
-%%                           ^ nil
+%%                            ^ default
   a\breve*1/2
-%% <- nil
+%%^ default
 %% ^ lilypond-ts-font-lock-duration-face
 }
-%% <- nil
+%% <- default
 
 \score {
 %% <- font-lock-keyword-face
-%%    ^ nil
+%%     ^ default
   <<
-%% <- nil
+%%^ default
     \new Staff \with {
 %%  ^ font-lock-keyword-face
 %%       ^ lilypond-ts-font-lock-context-face
 %%             ^ font-lock-keyword-face
-%%                  ^ nil
+%%                   ^ default
       instrumentName = "I"
-%% <- nil
+%%    ^ default
+%%                   ^ default
 %%                     ^ font-lock-string-face
       \consists Horizontal_bracket_engraver
 %%    ^ font-lock-keyword-face
-%%             ^ nil
+%%              ^ default
     } \music
-%% <- nil
+%%  ^ default
 %%    ^ lilypond-ts-font-lock-identifier-face
   >>
-%% <- nil
+%%^ default
   \layout {
 %%^ font-lock-keyword-face
-%%       ^ nil
+%%        ^ default
     \context {
 %%  ^ font-lock-keyword-face
-%%          ^ nil
+%%           ^ default
       \Score
 %%    ^ lilypond-ts-font-lock-context-face
       %% This is a comment
 %%    ^ font-lock-comment-face
       \applyContext #(lambda (ctx)
 ;;    ^ font-lock-keyword-face
-;;                 ^ nil
+;;                  ^ default
 ;;                    ^ font-lock-keyword-face
-;;                          ^ nil
+;;                           ^ default
+                       % wrong comment syntax
+;;                     ^ font-lock-warning-face
                        (message "~a\n bar" (ly:context-children ctx)))
-%% <- nil
+%%                     ^ default
 %%                              ^ font-lock-string-face
 %%                                 ^ (font-lock-escape-face font-lock-string-face)
 %%                                   ^ font-lock-string-face
-%%                                        ^ nil
+%%                                         ^ default
+%%                                                              ^ default
     }
-%% <- nil
+%%  ^ default
   }
-%% <- nil
+%%^ default
 }
-%% <- nil
+%% <- default

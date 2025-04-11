@@ -27,17 +27,23 @@
 (defsubst lilypond-ts--node-top-level-p (node)
   (treesit-node-match-p (treesit-node-parent node) "lilypond_program"))
 
-(defvar lilypond-ts--defun-query
+(defconst lilypond-ts--scheme-defun-sexp
+  '((scheme_list :anchor
+                 ((scheme_symbol) @kwd
+                  (:match "^define" @kwd))) @def))
+
+(defconst lilypond-ts--defun-query
   (treesit-query-compile 'lilypond
-                         '(((assignment_lhs :anchor
+                         `(((assignment_lhs :anchor
                                             (symbol) @name) @def
                                             (:pred lilypond-ts--node-top-level-p
                                                    @def))
                            (((escaped_word) @kwd
                              (:match "^\\\\parserDefine$" @kwd)))
-                           ((scheme_list :anchor
-                                         ((scheme_symbol) @kwd
-                                          (:match "^define" @kwd))) @def))))
+                           ,lilypond-ts--scheme-defun-sexp)))
+
+(defconst lilypond-ts-scheme--defun-query
+  (treesit-query-compile 'lilypond-scheme lilypond-ts--scheme-defun-sexp))
 
 (defun lilypond-ts--defun-name (node)
   "For defun node, return the name of the corresponding function or variable.
@@ -81,7 +87,23 @@ text of the next symbol after node."
                                  "decimal_number"))
                   . lilypond-ts--node-preceded-by-whitespace)))
      (text ,(regexp-opt '("comment" ;; also matches scheme_comment
-                          ))))))
+                          ))))
+    (lilypond-scheme
+     (defun ,(lambda (n)
+               (treesit-node-eq
+                n (cdar (treesit-query-capture n lilypond-ts-scheme--defun-query)))))
+     (sexp (or symbol
+               ,(regexp-opt '("scheme_embedded_lilypond"
+                              "scheme_list"
+                              "scheme_vector"
+                              "scheme_byte_vector"))))
+     (symbol ,(regexp-opt '("scheme_symbol"
+                            "scheme_string"
+                            "scheme_boolean"
+                            "scheme_keyword"
+                            "scheme_character"
+                            "scheme_number")))
+     (text ,(regexp-opt '("scheme_comment"))))))
 
 (defvar lilypond-ts-imenu-rules
   `(("Definitions" defun)

@@ -62,15 +62,14 @@
     (setq-local treesit-thing-settings lilypond-ts--thing-settings)
     (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
     (setq-local treesit-defun-tactic 'nested)
+    (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        (lilypond-ts--font-lock-rules)))
     (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
-    ;; (setq-local treesit--indent-verbose t)
-    ;; (setq-local treesit--font-lock-verbose t)
-    (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+
     (treesit-major-mode-setup)
-    ;; to do: set comment-use-syntax
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
     (lilypond-ts-autodoc-mode 1)
     (lilypond-ts-capf-mode 1)

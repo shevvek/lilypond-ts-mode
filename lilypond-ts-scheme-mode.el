@@ -79,17 +79,18 @@
                       'lilypond
                     'lilypond-scheme)))
 
-    ;; (setq-local treesit-thing-settings lilypond-ts--thing-settings)
-    ;; (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
-    ;; (setq-local treesit-defun-tactic 'nested)
+    (setq-local treesit-thing-settings lilypond-ts--thing-settings)
+    (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
+    (setq-local treesit-defun-tactic 'nested)
+    (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        `( :default-language lilypond-scheme
                           ,@(lilypond-ts--scheme-font-lock-rules)
                           ,@(lilypond-ts--font-lock-rules))))
     (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
-    ;; (setq-local treesit--font-lock-verbose t)
-    ;; (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+
     (treesit-major-mode-setup)
     (setq-local syntax-propertize-function
                 #'lilypond-ts-scheme--propertize-syntax)
@@ -97,7 +98,6 @@
     (lilypond-ts-autodoc-mode 1)))
 
 (derived-mode-set-parent 'lilypond-ts-scheme-mode 'scheme-mode)
-(add-to-list 'auto-mode-alist '("\\.scm\\'" . lilypond-ts-scheme-mode))
 
 (provide 'lilypond-ts-scheme-mode)
 ;;; lilypond-ts-scheme-mode.el ends here

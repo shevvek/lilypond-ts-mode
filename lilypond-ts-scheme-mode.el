@@ -32,8 +32,8 @@
 ;;; Grammar installation
 
 (defvar lilypond-ts-scheme-grammar-url
-  '("https://github.com/shevvek/tree-sitter-lilypond-scheme/"
-    "abi-14-nested-embeddings"))
+  '("https://github.com/nwhetsell/tree-sitter-lilypond-scheme"
+    "main"))
 
 (defun lilypond-ts-scheme--install ()
   (add-to-list 'treesit-language-source-alist

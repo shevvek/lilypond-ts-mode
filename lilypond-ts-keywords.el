@@ -30,10 +30,6 @@
 (require 'lilypond-ts-base)
 (require 'lilypond-ts-repl)
 
-(defgroup lilypond-ts-font-lock nil
-  "Font lock settings for `lilypond-ts-mode'."
-  :group 'lilypond-ts)
-
 (defcustom lilypond-ts--other-keywords
   '("absolute" "acciaccatura" "after" "afterGrace" "alterBroken"
     "appendToTag" "applyContext" "applyMusic" "applyOutput" "appoggiatura"

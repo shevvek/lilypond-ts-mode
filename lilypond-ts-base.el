@@ -33,5 +33,9 @@
   "Customization options for `lilypond-ts-mode'"
   :group 'languages)
 
+(defgroup lilypond-ts-font-lock nil
+  "Font lock settings for `lilypond-ts-mode'."
+  :group 'lilypond-ts)
+
 (provide 'lilypond-ts-base)
 ;;; lilypond-ts-base.el ends here

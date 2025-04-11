@@ -96,6 +96,20 @@ of Lilypond."
       'lilypond
     'lilypond-scheme))
 
+(defcustom lilypond-ts--scheme-defun-regex
+  (rx "define" (or (not alpha) eol))
+  "Font lock regex for Scheme defun keywords in `lilypond-ts-mode'."
+  :group 'lilypond-ts-font-lock
+  :type 'string)
+
+(defsubst lilypond-ts--node-top-level-p (node)
+  (treesit-node-match-p (treesit-node-parent node) "lilypond_program"))
+
+(defsubst lilypond-ts--named-defun-p (node)
+  (let ((text (treesit-node-text node t)))
+    (and (string-match-p lilypond-ts--scheme-defun-regex text)
+         (not (string-match-p "lambda\\|function" text)))))
+
 (defun lilypond-ts--scheme-defun-lambda-p (node)
   "Given NODE is the second child of a Scheme defun form, is it a named defun?"
   (or (treesit-node-match-p node "scheme_list")

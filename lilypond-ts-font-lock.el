@@ -63,12 +63,6 @@
                     err)
            nil)))
 
-(defcustom lilypond-ts--scheme-defun-regex
-  (rx "define" (or (not alpha) eol))
-  "Font lock regex for Scheme defun keywords in `lilypond-ts-mode'."
-  :group 'lilypond-ts-font-lock
-  :type 'string)
-
 (defcustom lilypond-ts--scheme-kwd-free-regexes
   '("let" "syntax" "lambda" "case" "cond" "match" "regex" "force" "assert"
     "fluid" "wind" "map" "filter" "for-each" "fold" "reduce" "transduce")

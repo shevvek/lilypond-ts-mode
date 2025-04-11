@@ -77,17 +77,11 @@ LilyPond code, including nested embeddings."
     (setq-local treesit-language-at-point-function
                 #'lilypond-ts-scheme--treesit-language-at)
 
-    (setq-local treesit-thing-settings lilypond-ts--thing-settings)
-    (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
-    (setq-local treesit-defun-tactic 'nested)
-    (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
-
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
                        `( :default-language lilypond-scheme
                           ,@(lilypond-ts--scheme-font-lock-rules)
                           ,@(lilypond-ts--font-lock-rules))))
-    (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
 
     (treesit-major-mode-setup)
     (setq-local syntax-propertize-function

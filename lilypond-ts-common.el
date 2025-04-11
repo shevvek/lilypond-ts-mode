@@ -96,8 +96,15 @@ local."
   (add-hook 'lilypond-ts-post-eval-hook
             #'lilypond-ts--require-keyword-updates nil t)
 
+  (setq-local treesit-thing-settings lilypond-ts--thing-settings)
+  (setq-local treesit-defun-name-function #'lilypond-ts--defun-name)
+  (setq-local treesit-defun-tactic 'nested)
+  (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
+
   (setq-local lisp-indent-function #'scheme-indent-function)
   (setq-local treesit-simple-indent-rules (lilypond-ts--indent-rules))
+
+  (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
 
   (setq-local comment-start-skip "[%;]+{? *")
   (setq-local comment-end ""))

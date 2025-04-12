@@ -246,10 +246,12 @@ seeing if the first n nodes match against each mask.  You can picture this as
 \"sliding\" MASK along the list of captured nodes until it slots in where each
 element of MASK lines up with a matching node.
 
-In reality, mask elements are not simple word lists, but pairs of functions: a
-predicate used to check whether the text of a node matches, and a function that
-accepts the text of each other node matched by the mask, returning a completion
-table.
+In reality, mask elements are not simple word lists, but lists of form:
+
+(key predicate make-table)
+
+PREDICATE checks whether the text of a node matches. MAKE-TABLE accepts the text
+of each other node matched by the mask, returning a completion table.
 
 Once all MASKS have been tried, if the rule includes POST-PROC, it is applied to
 the final combined completion table.  This is a good place to apply
@@ -268,45 +270,43 @@ the final combined completion table.  This is a good place to apply
    do (when lilypond-ts--capf-verbose
         (message "Matched %s capf rule %s at %d"
                  language rule-name (point)))
-   and
-   thereis (cl-loop
-            for mask in masks
-            for words = (cl-loop
-                         ;; In practice, the most common case should be mask
-                         ;; and captures of equal length => only one step.
-                         for tail on captures until (> (length mask)
-                                                       (length tail))
-                         thereis (cl-loop
-                                  with home = nil
-                                  for neighbor in tail
-                                  for (key pred make-table) in mask
-                                  for text = (treesit-node-text neighbor t)
-                                  if (treesit-node-eq node neighbor)
-                                  do (setf home make-table)
-                                  else if (funcall pred text)
-                                  do (when lilypond-ts--capf-verbose
-                                       (message "Capf: neighbor %s is a %s"
-                                                text key))
-                                  and collect text into friends
-                                  else
-                                  do (when lilypond-ts--capf-verbose
-                                       (message "Capf: neighbor %s is not a %s"
-                                                text key))
-                                  and return nil
-                                  finally return (apply home friends)))
-            when words collect words into tables
-            finally return
-            `(,(treesit-node-start node)
-              ,(treesit-node-end node)
-              ,(funcall (or post-process
-                            (cdr (cl-assoc
-                                  node
-                                  (cdr (assq language
-                                             lilypond-ts--capf-post-process-alist))
-                                  :test #'treesit-node-match-p))
-                            #'identity)
-                        (apply #'completion-table-merge tables))
-              . ,lilypond-ts--capf-properties))))
+   and thereis
+   (cl-loop
+    for mask in masks
+    for words = (cl-loop
+                 ;; In practice, the most common case should be mask
+                 ;; and captures of equal length => only one step.
+                 for tail on captures until (> (length mask)
+                                               (length tail))
+                 thereis (cl-loop
+                          with home = nil
+                          for neighbor in tail
+                          for (key pred make-table) in mask
+                          for text = (treesit-node-text neighbor t)
+                          if (treesit-node-eq node neighbor)
+                          do (setf home make-table)
+                          else if (funcall pred text)
+                          do (when lilypond-ts--capf-verbose
+                               (message "Capf: neighbor %s is a %s"
+                                        text key))
+                          and collect text into friends
+                          else do (when lilypond-ts--capf-verbose
+                                    (message "Capf: neighbor %s is not a %s"
+                                             text key))
+                          and return nil
+                          finally return (apply home friends)))
+    when words collect words into tables
+    finally return
+    `(,(treesit-node-start node)
+      ,(treesit-node-end node)
+      ,(funcall (or post-process
+                    (cdr (cl-assoc node
+                                   (cdr (assq language
+                                              lilypond-ts--capf-post-process-alist))
+                                   :test #'treesit-node-match-p))
+                    #'identity)
+                (apply #'completion-table-merge tables))
+      . ,lilypond-ts--capf-properties))))
 
 ;;; LilyPond specific configuration begins here:
 

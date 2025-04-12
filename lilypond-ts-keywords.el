@@ -69,10 +69,10 @@ If CATEGORY does not define :match-function and data is non-empty, ensure that
                                    (propertize (funcall wrap-element elt)
                                                :company-kind kind))
                                wrap-element)))
-        (plist-put keyword-category :needs-update nil)
         (setf (cadr keyword-category)
               (delq nil (mapcar wrap-with-kind new-data)))
-        (plist-put keyword-category :match-regexp nil))
+        (plist-put keyword-category :match-regexp nil)
+        (plist-put keyword-category :needs-update nil))
     (unless (or (not (cadr keyword-category))
                 (plist-get keyword-category :match-function)
                 (plist-get keyword-category :match-regexp))
@@ -101,16 +101,16 @@ If CATEGORY does not define :match-function and data is non-empty, ensure that
 Attempt matching using :match-function, :match-regexp, or against the raw
 keyword list, in that order of preference."
   (if-let ((keyword-category (lilypond-ts--get-keywords category))
+           (word (string-trim-left word "\\\\"))
            (matcher (or (plist-get keyword-category :match-function)
-                        (plist-get keyword-category :match-regexp)))
-           (word (string-trim-left word "\\\\")))
+                        (plist-get keyword-category :match-regexp))))
       (cond
        ((functionp matcher)
         (funcall matcher word))
        ((stringp matcher)
         (let ((case-fold-search nil))
           (string-match-p matcher word))))
-    (seq-contains-p (cadr keyword-category) word)))
+    (seq-contains-p (cadr keyword-category) word #'string-equal)))
 
 (defun lilypond-ts--keyword-node-predicate (&rest categories)
   (lilypond-ts--intern-lambda

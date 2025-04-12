@@ -123,11 +123,9 @@ strings."
   (lilypond-ts--capf-test
    "\\override D" ("DynamicText" "Dynamics")))
 (ert-deftest lilypond-ts-test--grob-properties-capf ()
-  :expected-result :failed
   (lilypond-ts--capf-test
    "NoteHead.s" "stencil" ("slashedGrace" "start-callback")))
 (ert-deftest lilypond-ts-test--context-grob-properties-capf ()
-  :expected-result (if noninteractive :failed :passed)
   (lilypond-ts--capf-test
    "Voice.NoteHead.s" "stencil" ("slashedGrace" "start-callback")))
 (ert-deftest lilypond-ts-test--nested-grob-properties-capf ()

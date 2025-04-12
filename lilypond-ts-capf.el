@@ -29,6 +29,8 @@
 
 ;;; These variables are a generic API but the values are LilyPond specific.
 
+(defvar lilypond-ts--capf-verbose nil)
+
 (defvar lilypond-ts--capf-properties
   `( :company-kind lilypond-ts--company-kind
      :company-docsig
@@ -86,6 +88,8 @@ of simply populating the completion table with all words in the category."
   (lambda (&rest friends)
     (completion-table-dynamic
      (lambda (&optional pfx)
+       (when lilypond-ts--capf-verbose
+         (message "Generating table for %s" key))
        (let* ((keyword-category (lilypond-ts--get-keywords key))
               (completions-function (plist-get keyword-category
                                                :completions-function)))
@@ -104,7 +108,11 @@ of simply populating the completion table with all words in the category."
                     (member str (ensure-list key)))))
    (t (byte-compile
        (lambda (word)
-         (funcall lilypond-ts--treesit-capf-default-matcher word key))))))
+         (let ((result (funcall lilypond-ts--treesit-capf-default-matcher
+                                word key)))
+           (when lilypond-ts--capf-verbose
+             (message "Matched %s against %s: %s" word key result))
+           result))))))
 
 (defun lilypond-ts--treesit-make-capf-table (key)
   (cond
@@ -183,7 +191,8 @@ capture groups, only the first will be used."
                       (lilypond-ts--treesit-query-depths query)
                       (lilypond-ts--map-squared
                        (lambda (key)
-                         (list (lilypond-ts--treesit-make-capf-pred key)
+                         (list key
+                               (lilypond-ts--treesit-make-capf-pred key)
                                (lilypond-ts--treesit-make-capf-table key)))
                        masks)
                       (byte-compile post-proc))))))
@@ -256,6 +265,10 @@ the final combined completion table.  This is a good place to apply
                    node (lilypond-ts--treesit-query-parents node query
                                                             min-depth max-depth))
    when captures
+   do (when lilypond-ts--capf-verbose
+        (message "Matched %s capf rule %s at %d"
+                 language rule-name (point)))
+   and
    thereis (cl-loop
             for mask in masks
             for words = (cl-loop
@@ -266,13 +279,20 @@ the final combined completion table.  This is a good place to apply
                          thereis (cl-loop
                                   with home = nil
                                   for neighbor in tail
-                                  for (pred make-table) in mask
+                                  for (key pred make-table) in mask
                                   for text = (treesit-node-text neighbor t)
-                                  unless (treesit-node-eq node neighbor)
-                                  if (funcall pred text)
-                                  collect text into friends
-                                  else return nil end
-                                  else do (setf home make-table) end
+                                  if (treesit-node-eq node neighbor)
+                                  do (setf home make-table)
+                                  else if (funcall pred text)
+                                  do (when lilypond-ts--capf-verbose
+                                       (message "Capf: neighbor %s is a %s"
+                                                text key))
+                                  and collect text into friends
+                                  else
+                                  do (when lilypond-ts--capf-verbose
+                                       (message "Capf: neighbor %s is not a %s"
+                                                text key))
+                                  and return nil
                                   finally return (apply home friends)))
             when words collect words into tables
             finally return
@@ -364,7 +384,7 @@ Used by `lilypond-ts--treesit-capf' to, for example, apply an appropriate
                             (symbol) @0
                             (symbol) @1
                             :anchor))
-      ((grobs grob-props)
+      ((grobs grob-properties)
        (contexts grobs)
        (contexts translation-properties)
        (music-types music-properties)))

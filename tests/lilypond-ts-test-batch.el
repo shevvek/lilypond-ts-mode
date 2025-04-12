@@ -25,8 +25,8 @@
 (require 'cl-lib)
 (require 'ert)
 
-(defun lilypond-ts-test--run-batch-tests ()
-  (interactive)
+(defun lilypond-ts-test--run-batch-tests (&optional stable)
+  (interactive "P")
   (pop-to-buffer "*LilyPond TS Tests*" '((post-command-select-window . nil)))
   (goto-char (point-max))
   (ert-simple-view-mode)
@@ -41,6 +41,9 @@
                                       :test #'string-match-p)
                         "-L" (expand-file-name lilypond-ts-location)
                         "-L" (expand-file-name "tests/" lilypond-ts-location)
+                        "--eval" (if stable
+                                     "(setq lilypond-ts-repl-version \"2.24.0\")"
+                                   "t")
                         "-l" "lilypond-ts-tests"
                         "-l" "lilypond-ts-nav-tests"
                         "-f" "ert-run-tests-batch-and-exit")))

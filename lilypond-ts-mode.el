@@ -74,8 +74,10 @@ Features include:
     (setq-local block-comment-end "%}")
 
     (setq-local treesit-font-lock-settings
-                (apply #'treesit-font-lock-rules
-                       (lilypond-ts--font-lock-rules)))
+                (lilypond-ts--construct-font-lock-rules))
+
+    (setq-local treesit-simple-indent-rules
+                `((lilypond . ,(lilypond-ts--indent-rules))))
 
     (treesit-major-mode-setup)
     (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)

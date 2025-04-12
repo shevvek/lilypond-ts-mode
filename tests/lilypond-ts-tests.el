@@ -31,21 +31,15 @@
   (or (treesit-parser-list (current-buffer) 'lilypond)
       (treesit-parser-create 'lilypond)))
 
-(defun lilypond-ts-test--indent-test ()
-  (lilypond-ts-test--parser-setup)
-  (setq-local treesit-simple-indent-rules
-              (treesit--indent-rules-optimize (lilypond-ts--indent-rules)))
-  (setq-local indent-line-function #'treesit-indent)
-  (setq-local indent-region-function #'treesit-indent-region)
-  (setq-local lisp-indent-function #'scheme-indent-function)
-  (setq-local syntax-propertize-function #'lilypond-ts--propertize-syntax)
-  (indent-region-line-by-line (point-min) (point-max))
-  (set-text-properties (point-min) (point-max) nil))
-
-(defun lilypond-ts-test--scheme-indent-test ()
-  (lilypond-ts-scheme-mode)
+(defun lilypond-ts-test--indent-test (&optional scheme-p)
+  (if scheme-p
+      (lilypond-ts-scheme-mode)
+    (lilypond-ts-mode))
   (indent-region (point-min) (point-max))
   (set-text-properties (point-min) (point-max) nil))
+
+(defsubst lilypond-ts-test--scheme-indent-test ()
+  (lilypond-ts-test--indent-test t))
 
 (ert-deftest lilypond-ts-test--indent-tests ()
   (skip-unless (treesit-ready-p 'lilypond))
@@ -53,8 +47,7 @@
                       #'lilypond-ts-test--indent-test))
 
 (ert-deftest lilypond-ts-test--scheme-indent-tests ()
-  (skip-unless (and (treesit-ready-p 'lilypond-scheme)
-                    (treesit-ready-p 'lilypond)))
+  (skip-unless (treesit-ready-p 'lilypond-scheme))
   (ert-test-erts-file (ert-resource-file "scheme-indent.erts")
                       #'lilypond-ts-test--scheme-indent-test))
 

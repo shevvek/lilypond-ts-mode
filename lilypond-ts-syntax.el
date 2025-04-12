@@ -31,50 +31,49 @@
 
 (require 'lilypond-ts-base)
 
-(defun lilypond-ts--scheme-ranges (&optional start end)
+(defun lilypond-ts--embed-ranges (&optional start end)
   "Find treesit ranges for embedded Scheme and Lilypond blocks, which may be
 nested. Flatten them into a list of Scheme ranges that excludes embedded blocks
 of Lilypond."
-  (let* ((scheme-ranges (treesit-query-range 'lilypond
-                                             '((embedded_scheme_text) @capture)
-                                             start end))
-         (ly-ranges (treesit-query-range 'lilypond
-                                         '((scheme_embedded_lilypond) @capture)
-                                         start end))
-         (scheme-range-bounds (flatten-list scheme-ranges))
-         (ly-range-bounds (remq (or end (point-max))
-                                (remq (or start (point-min))
-                                      (flatten-list ly-ranges))))
-         (outer-lily-p (and scheme-range-bounds ly-range-bounds
-                            (> (apply #'min scheme-range-bounds)
-                               (apply #'min ly-range-bounds))))
-         (scheme-stripe-bounds (sort (append scheme-range-bounds
-                                             ly-range-bounds
-                                             (when outer-lily-p
-                                               (list (or start (point-min))
-                                                     (or end (point-max))))))))
-    (seq-split scheme-stripe-bounds 2)))
+  (let* ((scheme-query '((embedded_scheme_text) @capture))
+         (ly-query '((scheme_embedded_lilypond) @capture))
+         (parent-node (treesit-node-on start end))
+         (scheme-p (eq 'lilypond-scheme (treesit-node-language parent-node)))
+         (embed-ranges (treesit-query-range parent-node
+                                            (if scheme-p ly-query scheme-query)
+                                            start end))
+         (host-ranges (treesit-query-range parent-node
+                                           (if scheme-p scheme-query ly-query)
+                                           start end))
+         (embed-range-bounds (flatten-list embed-ranges))
+         (host-range-bounds (remq (or end (point-max))
+                                  (remq (or start (point-min))
+                                        (flatten-list host-ranges))))
+         (outer-host-p (and embed-range-bounds host-range-bounds
+                            (> (apply #'min embed-range-bounds)
+                               (apply #'min host-range-bounds))))
+         (embed-stripe-bounds (sort (append embed-range-bounds
+                                            host-range-bounds
+                                            (when outer-host-p
+                                              (list (or start (point-min))
+                                                    (or end (point-max))))))))
+    (seq-split embed-stripe-bounds 2)))
 
 (defun lilypond-ts--propertize-syntax (start end)
-  (let ((scheme-ranges (lilypond-ts--scheme-ranges start end)))
+  (let* ((embed-ranges (lilypond-ts--embed-ranges start end))
+         (scheme-p (eq 'lilypond-scheme (treesit-parser-language
+                                         treesit-primary-parser)))
+         (host-table (if scheme-p scheme-mode-syntax-table
+                       lilypond-ts-mode-syntax-table))
+         (embed-table (if scheme-p lilypond-ts-mode-syntax-table
+                        scheme-mode-syntax-table)))
     (with-silent-modifications
-      (put-text-property start end 'syntax-table (syntax-table))
-      (dolist (range scheme-ranges)
+      (put-text-property start end 'syntax-table host-table)
+      (dolist (range embed-ranges)
         ;; unclear why calling scheme-propertize-syntax doesn't work
         ;; maybe it depends on more than just (syntax-table)
         (put-text-property (car range) (cadr range)
-                           'syntax-table scheme-mode-syntax-table)))))
-
-(defun lilypond-ts-scheme--propertize-syntax (start end)
-  (cl-loop for (a . b) being intervals from start to end property 'treesit-parser
-           for embedded-parser = (get-char-property a 'treesit-parser)
-           if (and embedded-parser
-                   (eq 'lilypond (treesit-parser-language embedded-parser)))
-           do (lilypond-ts--propertize-syntax a b)
-           else do (put-text-property a b 'syntax-table scheme-mode-syntax-table)))
-
-(defsubst lilypond-ts-scheme--top-level-scheme-p (node)
-  (not (treesit-parent-until node "scheme_embedded_lilypond_text" nil)))
+                           'syntax-table embed-table)))))
 
 (defun lilypond-ts--lang-block-parent (node &rest _)
   (treesit-parent-until node (regexp-opt '("embedded_scheme_text"
@@ -88,13 +87,6 @@ of Lilypond."
          (not (treesit-node-match-p node (regexp-opt
                                           '("scheme_embedded_lilypond"
                                             "embedded_scheme_prefix")))))))
-
-(defun lilypond-ts-scheme--treesit-language-at (pos)
-  (if (treesit-parent-until
-       (treesit-node-at pos 'lilypond-scheme)
-       "embedded_lilypond_text")
-      'lilypond
-    'lilypond-scheme))
 
 (defcustom lilypond-ts--scheme-defun-regex
   (rx "define" (or (not alpha) eol))

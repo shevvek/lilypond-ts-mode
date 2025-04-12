@@ -32,8 +32,8 @@
 ;;; Grammar installation
 
 (defvar lilypond-ts-scheme-grammar-url
-  '("https://github.com/nwhetsell/tree-sitter-lilypond-scheme"
-    "main"))
+  '("https://github.com/nwhetsell/tree-sitter-lilypond/"
+    "main" "lilypond-scheme/src"))
 
 (defun lilypond-ts-scheme--install ()
   (add-to-list 'treesit-language-source-alist
@@ -49,43 +49,30 @@
   "Customization options for `lilypond-ts-scheme-mode'"
   :group 'lilypond-ts)
 
-(defvar lilypond-ts--scheme-lilypond-range-rule
-  '( :embed lilypond
-     :host lilypond-scheme
-     :local t
-     (((scheme_embedded_lilypond_text) @capture
-       (:pred lilypond-ts-scheme--top-level-scheme-p @capture)))))
-
 ;;;###autoload
 (define-derived-mode lilypond-ts-scheme-mode lilypond-ts-common-mode
+  "LilyPond Scheme"
   "A `treesit' major mode for editing GNU LilyPond Scheme files.
 
 Most features are shared with `lilypond-ts-mode'. Full support for embedded
 LilyPond code, including nested embeddings."
   :group 'lilypond-ts-scheme
-  (when (and (treesit-ready-p 'lilypond-scheme)
-             (treesit-ready-p 'lilypond))
+  (when (treesit-ready-p 'lilypond-scheme)
     (setq-local treesit-primary-parser (treesit-parser-create 'lilypond-scheme))
 
     (setq-local comment-start ";")
     (setq-local block-comment-start "#!")
     (setq-local block-comment-end "!#")
 
-    (setq-local treesit-range-settings
-                (apply #'treesit-range-rules
-                       lilypond-ts--scheme-lilypond-range-rule))
-    (setq-local treesit-language-at-point-function
-                #'lilypond-ts-scheme--treesit-language-at)
-
     (setq-local treesit-font-lock-settings
-                (apply #'treesit-font-lock-rules
-                       `( :default-language lilypond-scheme
-                          ,@(lilypond-ts--scheme-font-lock-rules)
-                          ,@(lilypond-ts--font-lock-rules))))
+                (lilypond-ts--construct-font-lock-rules t))
+
+    (setq-local treesit-simple-indent-rules
+                `((lilypond-scheme . ,(lilypond-ts--indent-rules))))
 
     (treesit-major-mode-setup)
     (setq-local syntax-propertize-function
-                #'lilypond-ts-scheme--propertize-syntax)
+                #'lilypond-ts--propertize-syntax)
     (lilypond-ts-capf-mode 1)
     (lilypond-ts-autodoc-mode 1)))
 

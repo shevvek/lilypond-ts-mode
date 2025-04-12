@@ -242,22 +242,8 @@ exactly (not counting the suffix `!')."
   :group 'lilypond-ts-font-lock)
 
 (defun lilypond-ts--font-lock-rules ()
-  `( :default-language lilypond
-
-     ,@(lilypond-ts--scheme-font-lock-rules)
-
-     :feature comment
+  `( :feature comment
      ((comment) @font-lock-comment-face)
-
-     :feature warning
-     :override t
-     ((scheme_list (comment) @font-lock-warning-face)
-      (scheme_quote (comment) @font-lock-warning-face)
-      (scheme_quasiquote (comment) @font-lock-warning-face)
-      (scheme_unquote (comment) @font-lock-warning-face)
-      (scheme_unquote_splicing (comment) @font-lock-warning-face)
-      (scheme_vector (comment) @font-lock-warning-face)
-      (scheme_byte_vector (comment) @font-lock-warning-face))
 
      :feature string
      ((string) @font-lock-string-face)
@@ -382,6 +368,23 @@ exactly (not counting the suffix `!')."
 
      :feature catch-all
      (_ @default)))
+
+(defun lilypond-ts--construct-font-lock-rules (&optional scheme-p)
+  (apply #'treesit-font-lock-rules
+         `( :default-language ,(if scheme-p 'lilypond-scheme 'lilypond)
+            ,@(lilypond-ts--scheme-font-lock-rules)
+            ,@(lilypond-ts--font-lock-rules)
+            .
+            ,(unless scheme-p
+               '( :feature warning
+                  :override t
+                  ((scheme_list (comment) @font-lock-warning-face)
+                   (scheme_quote (comment) @font-lock-warning-face)
+                   (scheme_quasiquote (comment) @font-lock-warning-face)
+                   (scheme_unquote (comment) @font-lock-warning-face)
+                   (scheme_unquote_splicing (comment) @font-lock-warning-face)
+                   (scheme_vector (comment) @font-lock-warning-face)
+                   (scheme_byte_vector (comment) @font-lock-warning-face)))))))
 
 (defvar lilypond-ts--font-lock-features
   '(( comment string escaped-word catch-all

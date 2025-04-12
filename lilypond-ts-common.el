@@ -41,7 +41,7 @@
 
 (defvar lilypond-ts-grammar-url
   '("https://github.com/nwhetsell/tree-sitter-lilypond/"
-    "tree-sitter-abi-14-main"))
+    "main" "lilypond/src"))
 
 (defun lilypond-ts--install ()
   (add-to-list 'treesit-language-source-alist
@@ -102,7 +102,6 @@ local."
   (setq-local treesit-simple-imenu-settings lilypond-ts-imenu-rules)
 
   (setq-local lisp-indent-function #'scheme-indent-function)
-  (setq-local treesit-simple-indent-rules (lilypond-ts--indent-rules))
 
   (setq-local treesit-font-lock-feature-list lilypond-ts--font-lock-features)
 

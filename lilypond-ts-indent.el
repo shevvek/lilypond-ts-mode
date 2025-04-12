@@ -32,62 +32,54 @@
   :group 'lilypond-ts
   :type 'natnum)
 
-(defun lilypond-ts--indent-rules ()
-  `((lilypond
-     ;; Don't indent wrapped strings
-     (no-node column-0 0)
-
-     ;; Align braces and brackets with the surrounding scope
-     ((node-is "{") parent-bol 0)
-     ((node-is "<<") parent-bol 0)
-     ((node-is "}") parent-bol 0)
-     ((node-is ">>") parent-bol 0)
-
-     ;; Indent broken assignments
-     ((query (((assignment_lhs) :anchor
-               ((punctuation) @equals
-                (:match "^=$" @equals)) :anchor
-               (_) @rhs)))
-      prev-line
-      lilypond-ts-indent-broken-offset)
-
-     ;; Indent inside curly braces {}
-     ((parent-is "expression_block") parent-bol lilypond-ts-indent-offset)
-     ;; Indent inside double angle brackets << >>
-     ((parent-is "parallel_music") parent-bol lilypond-ts-indent-offset)
-     ;; Indent inside #{ #}
-     ((parent-is "scheme_embedded_lilypond") parent-bol lilypond-ts-indent-offset)
-
-     ;; Use scheme-mode indentation for embedded Scheme blocks
-     ;; Lilypond embedded within Scheme won't match this rule
-     ((and (node-is "scheme")
-           (not (node-is "embedded_scheme_prefix")))
-      ;; calculate-lisp-indent already takes initial indent into account
-      column-0
-      (lambda (node &rest _)
-        (car (ensure-list
-              (calculate-lisp-indent (treesit-node-start
-                                      (lilypond-ts--lang-block-parent node)))))))
-
-     ;; Base top level indentation
-     ((parent-is "program") parent-bol 0))
-    (lilypond-scheme
-     ((node-is "#{") parent-bol 0)
-     ((node-is "#}") parent-bol 0)
-
-     ((parent-is "scheme_embedded_lilypond") parent-bol lilypond-ts-indent-offset)
-
-     (no-node column-0 0)
-
-     ((parent-is "program") column-0 0)
-
-     (catch-all
-      ;; calculate-lisp-indent already takes initial indent into account
-      column-0
-      (lambda (node parent &rest _)
+(defun lilypond-ts--calculate-scheme-indent (node &rest _)
+  (car (ensure-list
         (calculate-lisp-indent
          (treesit-node-start
-          (treesit-node-top-level node '(not "program") t))))))))
+          (treesit-node-top-level
+           node
+           ;; This could be simpler if treesit thing predicates allowed 'and
+           '("scheme" . (lambda (n)
+                          (not (treesit-node-match-p
+                                n '(or "scheme_embedded_lilypond"
+                                       "scheme_program")))))
+           t))))))
+
+(defun lilypond-ts--indent-rules ()
+  `(;; Don't indent wrapped strings
+    (no-node column-0 0)
+
+    ;; Align braces and brackets with the surrounding scope
+    ((node-is "{") parent-bol 0)
+    ((node-is "<<") parent-bol 0)
+    ((node-is "}") parent-bol 0)
+    ((node-is ">>") parent-bol 0)
+
+    ;; Indent broken assignments
+    ((query (((assignment_lhs) :anchor
+              ((punctuation) @equals
+               (:match "^=$" @equals)) :anchor
+              (_) @rhs)))
+     prev-line
+     lilypond-ts-indent-broken-offset)
+
+    ;; Indent inside curly braces {}
+    ((parent-is "expression_block") parent-bol lilypond-ts-indent-offset)
+    ;; Indent inside double angle brackets << >>
+    ((parent-is "parallel_music") parent-bol lilypond-ts-indent-offset)
+    ;; Indent inside #{ #}
+    ((parent-is "scheme_embedded_lilypond") parent-bol lilypond-ts-indent-offset)
+
+    ;; Use scheme-mode indentation for embedded Scheme blocks
+    ;; Lilypond embedded within Scheme won't match this rule
+    ((and (node-is "scheme")
+          (not (node-is "embedded_scheme_prefix")))
+     ;; calculate-lisp-indent already takes initial indent into account
+     column-0
+     lilypond-ts--calculate-scheme-indent)
+
+    ;; Base top level indentation
+    ((parent-is "program") parent-bol 0)))
 
 (provide 'lilypond-ts-indent)
 ;;; lilypond-ts-indent.el ends here

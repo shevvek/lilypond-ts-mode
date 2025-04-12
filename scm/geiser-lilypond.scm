@@ -31,8 +31,13 @@
 (define-private gutils (resolve-module '(geiser utils)))
 (define-private gdoc (resolve-module '(geiser doc)))
 
-(ly:load "document-identifiers")
-(ly:load "define-paper-variables")
+(define-public (safe-load filename)
+  (let ((path (string-append "lily/" filename)))
+    (when (%search-load-path path)
+      (primitive-load-path path))))
+
+(safe-load "document-identifiers")
+(safe-load "define-paper-variables")
 
 (define (ly:primitive-args proc)
   (and-let* (((program? proc))

@@ -98,6 +98,12 @@ all properties in KEYS."
            always n
            thereis (treesit-query-capture n query)))
 
+(defsubst lilypond-ts--treesit-query-parent (node query depth)
+  "Try QUERY on NODE's START-DEPTH to END-DEPTH parents until the first success."
+  (when node
+    (treesit-query-capture (treesit-node-get node `((parent ,depth)))
+                           query)))
+
 (defun lilypond-ts--treesit-isolate-capture-group (node captures)
   "Return the nodes of the first capture group containing NODE in CAPTURES.
 

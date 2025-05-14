@@ -396,17 +396,17 @@ Used by `lilypond-ts--treesit-capf' to, for example, apply an appropriate
        (contexts translation-properties)
        (music-types music-properties)))
 
-     ("paper-block"
-      ((((escaped_word) @paper :anchor
-         (:match "^\\\\paper$" @paper))
-        (expression_block [(symbol) @prop
-                           (property_expression :anchor (symbol) @prop)
-                           (property_expression
-                            (property_expression :anchor (symbol) @prop))
-                           (property_expression
-                            (property_expression
-                             (property_expression :anchor (symbol) @prop)))])))
-      ((nil paper-variables)))
+     ;; ("paper-block"
+     ;;  ((((escaped_word) @paper :anchor
+     ;;     (:match "^\\\\paper$" @paper))
+     ;;    (expression_block [(symbol) @prop
+     ;;                       (property_expression :anchor (symbol) @prop)
+     ;;                       (property_expression
+     ;;                        (property_expression :anchor (symbol) @prop))
+     ;;                       (property_expression
+     ;;                        (property_expression
+     ;;                         (property_expression :anchor (symbol) @prop)))])))
+     ;;  ((nil paper-variables)))
 
      ("symbol"
       ((symbol) @0)

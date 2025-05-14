@@ -258,17 +258,21 @@ the final combined completion table.  This is a good place to apply
 `completion-table-subvert', for instance. Completion metadata from
 `lilypond-ts--capf-properties' is appended to the capf return value."
   (cl-loop
+   with start_time = (car (current-cpu-time))
    with node = (treesit-node-on (1- (point)) (point))
    with language = (treesit-language-at (point))
    for (rule-name query (min-depth . max-depth) masks post-process)
    ;; implicitly this handles the case where there is no treesit parser
    in (cdr (assq language lilypond-ts--treesit-capf-rules))
+   do (when lilypond-ts--capf-verbose
+        (message "Caf: attempting to match %s capf rule %s with %d elapsed"
+                 language rule-name (- (car (current-cpu-time)) start_time)))
    for captures = (lilypond-ts--treesit-isolate-capture-group
                    node (lilypond-ts--treesit-query-parents node query
                                                             min-depth max-depth))
    when captures
    do (when lilypond-ts--capf-verbose
-        (message "Matched %s capf rule %s at %d"
+        (message "Capf: matched %s capf rule %s at %d"
                  language rule-name (point)))
    and thereis
    (cl-loop
@@ -285,6 +289,9 @@ the final combined completion table.  This is a good place to apply
                           for text = (treesit-node-text neighbor t)
                           if (treesit-node-eq node neighbor)
                           do (setf home make-table)
+                          and do (when lilypond-ts--capf-verbose
+                                   (message "Capf: this node might be a %s"
+                                            key))
                           else if (funcall pred text)
                           do (when lilypond-ts--capf-verbose
                                (message "Capf: neighbor %s is a %s"
